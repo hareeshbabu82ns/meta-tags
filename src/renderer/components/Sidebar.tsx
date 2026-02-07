@@ -29,7 +29,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex-1 border-r border-border flex flex-col bg-sidebar-background overflow-hidden">
+    <div className="flex-1 border-r border-border flex flex-col bg-sidebar overflow-hidden">
       {/* Library header */}
       <div className="p-3 flex items-center justify-between shrink-0">
         <h2 className="text-sm font-semibold text-sidebar-foreground">

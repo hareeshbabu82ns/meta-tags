@@ -217,3 +217,17 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   stop: () => set({ currentFile: null, playing: false }),
   setPlaying: (playing) => set({ playing }),
 }));
+
+// ─── Document Viewer Store ─────────────────────────────────────────────
+
+interface ViewerState {
+  viewerFile: FileRecord | null;
+  openViewer: (file: FileRecord) => void;
+  closeViewer: () => void;
+}
+
+export const useViewerStore = create<ViewerState>((set) => ({
+  viewerFile: null,
+  openViewer: (file) => set({ viewerFile: file }),
+  closeViewer: () => set({ viewerFile: null }),
+}));

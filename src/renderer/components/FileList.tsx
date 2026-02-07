@@ -9,6 +9,7 @@ import {
   ClipboardPaste,
   Tags,
   Play,
+  Eye,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,12 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { useFileStore, useClipboardStore, usePlayerStore } from "../stores";
+import {
+  useFileStore,
+  useClipboardStore,
+  usePlayerStore,
+  useViewerStore,
+} from "../stores";
 import type { FileRecord } from "../../shared/types";
 import { getFileCategory } from "../../shared/types";
 
@@ -50,6 +56,7 @@ export function FileList() {
   const hasCopiedTags = useClipboardStore((s) => s.hasCopiedTags);
   const copiedTags = useClipboardStore((s) => s.copiedTags);
   const play = usePlayerStore((s) => s.play);
+  const openViewer = useViewerStore((s) => s.openViewer);
   const [searchInput, setSearchInput] = React.useState("");
 
   const handleSearch = () => {
@@ -87,10 +94,12 @@ export function FileList() {
   };
 
   const handleDoubleClick = (file: FileRecord) => {
-    if (getFileCategory(file.type) === "audio") {
+    const category = getFileCategory(file.type);
+    if (category === "audio") {
       play(file);
+    } else if (category === "document") {
+      openViewer(file);
     }
-    // For documents, we could open a viewer (future enhancement)
   };
 
   const handleSelectFile = (file: FileRecord, multi: boolean) => {
@@ -191,6 +200,11 @@ export function FileList() {
                     ? () => play(file)
                     : undefined
                 }
+                onOpenViewer={
+                  getFileCategory(file.type) === "document"
+                    ? () => openViewer(file)
+                    : undefined
+                }
                 hasCopiedTags={hasCopiedTags}
               />
             ))}
@@ -209,6 +223,7 @@ function FileRow({
   onCopyTags,
   onPasteTags,
   onPlay,
+  onOpenViewer,
   hasCopiedTags,
 }: {
   file: FileRecord;
@@ -218,6 +233,7 @@ function FileRow({
   onCopyTags: () => void;
   onPasteTags: () => void;
   onPlay?: () => void;
+  onOpenViewer?: () => void;
   hasCopiedTags: boolean;
 }) {
   return (
@@ -252,6 +268,12 @@ function FileRow({
           <ContextMenuItem onClick={onPlay}>
             <Play className="h-4 w-4 mr-2" />
             Play
+          </ContextMenuItem>
+        )}
+        {onOpenViewer && (
+          <ContextMenuItem onClick={onOpenViewer}>
+            <Eye className="h-4 w-4 mr-2" />
+            Open Viewer
           </ContextMenuItem>
         )}
         <ContextMenuItem onClick={onCopyTags}>

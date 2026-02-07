@@ -41,4 +41,11 @@ export const IPC = {
 
   // Folder tree
   GET_FOLDER_TREE: "fs:get-folder-tree",
+
+  // File viewers
+  GET_ALBUM_ART: "file:get-album-art",
+  SET_ALBUM_ART: "file:set-album-art",
+  REMOVE_ALBUM_ART: "file:remove-album-art",
+  SELECT_IMAGE_FILE: "dialog:select-image",
+  READ_FILE_BASE64: "file:read-base64",
 } as const;

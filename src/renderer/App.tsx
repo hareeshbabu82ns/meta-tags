@@ -4,23 +4,12 @@ import { Sidebar } from "./components/Sidebar";
 import { FileList } from "./components/FileList";
 import { TagInspector } from "./components/TagInspector";
 import { AudioPlayer } from "./components/AudioPlayer";
+import { AlbumArt } from "./components/AlbumArt";
 import { PdfViewer } from "./components/PdfViewer";
+import { PdfViewerModal } from "./components/PdfViewerModal";
+import { EpubViewerModal } from "./components/EpubViewerModal";
 import { PendingChangesPanel } from "./components/PendingChangesPanel";
 import { ScanProgressBar } from "./components/ScanProgressBar";
-import { TagRulesEditor } from "./components/TagRulesEditor";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useLibraryStore, useFileStore, useScanStore } from "./stores";
 
 export default function App() {
@@ -35,7 +24,6 @@ export default function App() {
   const [rightSidebarWidth, setRightSidebarWidth] = useState(480);
   const [isResizingLeft, setIsResizingLeft] = useState(false);
   const [isResizingRight, setIsResizingRight] = useState(false);
-  const [showRulesDialog, setShowRulesDialog] = useState(false);
   const resizeStartX = useRef(0);
   const resizeStartWidth = useRef(0);
 
@@ -166,26 +154,10 @@ export default function App() {
                 style={{ width: `${rightSidebarWidth}px` }}
                 className="border-l border-border overflow-hidden flex flex-col"
               >
-                {/* Right Sidebar Toolbar */}
-                <div className="flex items-center justify-end gap-1 px-2 py-1 border-b border-border shrink-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => setShowRulesDialog(true)}
-                        title="Tag Rules"
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Tag Rules</TooltipContent>
-                  </Tooltip>
-                </div>
-
                 {/* Audio Player - only shown for audio files */}
                 <AudioPlayer />
+                {/* Album Art - only shown for audio files */}
+                <AlbumArt />
                 {/* PDF Viewer - only shown for PDF files */}
                 <PdfViewer />
                 {/* Tag Inspector takes remaining space */}
@@ -201,17 +173,9 @@ export default function App() {
         <PendingChangesPanel />
       </div>
 
-      {/* Tag Rules Modal Dialog */}
-      <Dialog open={showRulesDialog} onOpenChange={setShowRulesDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Tag Rules</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            <TagRulesEditor />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Document Viewer Modals */}
+      <PdfViewerModal />
+      <EpubViewerModal />
     </TooltipProvider>
   );
 }

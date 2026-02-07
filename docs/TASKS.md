@@ -59,18 +59,18 @@
 - [x] Import/export rules as JSON files
 - [x] Live preview on rule list showing source → target mapping
 
+### Phase 3 — File Viewers
+
+- [x] PDF viewer using `react-pdf` in a modal/panel
+- [x] EPUB reader using `epubjs` in a modal/panel
+- [x] Album art / cover display for audio files
+- [x] Double-click to open document viewer
+
 ---
 
 ---
 
 ## 🔲 Remaining Tasks
-
-### Phase 3 — File Viewers
-
-- [ ] PDF viewer using `react-pdf` in a modal/panel
-- [ ] EPUB reader using `epubjs` in a modal/panel
-- [ ] Album art / cover display for audio files
-- [ ] Double-click to open document viewer
 
 ### Phase 4 — Polish & UX
 

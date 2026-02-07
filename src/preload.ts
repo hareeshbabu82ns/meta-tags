@@ -68,6 +68,16 @@ const api: ElectronAPI = {
   // File streaming
   getStreamUrl: (filePath: string) => `media://file${encodeURI(filePath)}`,
 
+  // File viewers
+  getAlbumArt: (filePath) => ipcRenderer.invoke(IPC.GET_ALBUM_ART, filePath),
+  setAlbumArt: (filePath, imagePath) =>
+    ipcRenderer.invoke(IPC.SET_ALBUM_ART, filePath, imagePath),
+  removeAlbumArt: (filePath) =>
+    ipcRenderer.invoke(IPC.REMOVE_ALBUM_ART, filePath),
+  selectImageFile: () => ipcRenderer.invoke(IPC.SELECT_IMAGE_FILE),
+  readFileAsBase64: (filePath) =>
+    ipcRenderer.invoke(IPC.READ_FILE_BASE64, filePath),
+
   // Folder tree
   getFolderTree: (libraryId) =>
     ipcRenderer.invoke(IPC.GET_FOLDER_TREE, libraryId),

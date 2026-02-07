@@ -1,6 +1,11 @@
+import * as fs from "node:fs";
 import { ipcMain, dialog, BrowserWindow } from "electron";
 import { IPC } from "../../shared/ipc-channels";
-import type { PendingChange, TagRule } from "../../shared/types";
+import type {
+  PendingChange,
+  TagRule,
+  AlbumArtResult,
+} from "../../shared/types";
 import * as queries from "../db/queries";
 import { scanLibrary } from "../services/scanner";
 import { writeTagToFile, deleteTagFromFile } from "../services/tag-writer";
@@ -200,4 +205,153 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.GET_FOLDER_TREE, (_e, libraryId: number) => {
     return queries.getFolderTree(libraryId);
   });
+
+  // ─── File Viewers ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    IPC.GET_ALBUM_ART,
+    async (_e, filePath: string): Promise<AlbumArtResult | null> => {
+      try {
+        const mm = await import("music-metadata");
+        const metadata = await mm.parseFile(filePath);
+        const pictures = metadata.common.picture;
+        if (!pictures || pictures.length === 0) return null;
+
+        // Prefer front cover, fall back to first picture
+        const cover =
+          pictures.find((p) => p.type === "Cover (front)") ?? pictures[0];
+        const base64 = Buffer.from(cover.data).toString("base64");
+        return { data: base64, format: cover.format };
+      } catch (err) {
+        console.error("Failed to extract album art:", err);
+        return null;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC.READ_FILE_BASE64,
+    async (_e, filePath: string): Promise<string> => {
+      const buffer = fs.readFileSync(filePath);
+      return buffer.toString("base64");
+    },
+  );
+
+  ipcMain.handle(IPC.SELECT_IMAGE_FILE, async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openFile"],
+      title: "Select Album Art Image",
+      filters: [
+        { name: "Images", extensions: ["jpg", "jpeg", "png", "webp", "bmp"] },
+      ],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle(
+    IPC.SET_ALBUM_ART,
+    async (_e, filePath: string, imagePath: string): Promise<boolean> => {
+      try {
+        const ext = filePath.split(".").pop()?.toLowerCase();
+        const imageBuffer = fs.readFileSync(imagePath);
+        const imageExt = imagePath.split(".").pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          webp: "image/webp",
+          bmp: "image/bmp",
+        };
+        const mime = mimeMap[imageExt ?? ""] ?? "image/jpeg";
+
+        if (ext === "mp3") {
+          const NodeID3 = require("node-id3");
+          const tags = {
+            image: {
+              mime,
+              type: { id: 3, name: "front cover" },
+              description: "Cover",
+              imageBuffer,
+            },
+          };
+          const result = NodeID3.update(tags, filePath);
+          if (result !== true) {
+            throw new Error("Failed to write album art to MP3");
+          }
+        } else {
+          // For non-MP3 audio files, store the image path in sidecar
+          const sidecarPath = filePath + ".meta.json";
+          let existing: Record<string, unknown> = {};
+          try {
+            if (fs.existsSync(sidecarPath)) {
+              existing = JSON.parse(fs.readFileSync(sidecarPath, "utf-8"));
+            }
+          } catch {
+            // Ignore parse errors
+          }
+          // Store album art as base64 in sidecar
+          existing["_album_art"] = {
+            data: imageBuffer.toString("base64"),
+            format: mime,
+          };
+          fs.writeFileSync(
+            sidecarPath,
+            JSON.stringify(existing, null, 2),
+            "utf-8",
+          );
+        }
+        return true;
+      } catch (err) {
+        console.error("Failed to set album art:", err);
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC.REMOVE_ALBUM_ART,
+    async (_e, filePath: string): Promise<boolean> => {
+      try {
+        const ext = filePath.split(".").pop()?.toLowerCase();
+
+        if (ext === "mp3") {
+          const NodeID3 = require("node-id3");
+          // read → strip image → removeTags → write back clean
+          const tags = NodeID3.read(filePath);
+          delete tags.image;
+          // Remove raw frame data so write() doesn't re-add APIC
+          delete tags.raw;
+          // Strip all existing ID3 tags from the file
+          NodeID3.removeTags(filePath);
+          // Write back the remaining tags without the image
+          const result = NodeID3.write(tags, filePath);
+          if (result !== true) {
+            throw new Error("Failed to remove album art from MP3");
+          }
+        } else {
+          // Remove from sidecar
+          const sidecarPath = filePath + ".meta.json";
+          if (fs.existsSync(sidecarPath)) {
+            const existing = JSON.parse(fs.readFileSync(sidecarPath, "utf-8"));
+            delete existing["_album_art"];
+            if (Object.keys(existing).length === 0) {
+              fs.unlinkSync(sidecarPath);
+            } else {
+              fs.writeFileSync(
+                sidecarPath,
+                JSON.stringify(existing, null, 2),
+                "utf-8",
+              );
+            }
+          }
+        }
+        return true;
+      } catch (err) {
+        console.error("Failed to remove album art:", err);
+        return false;
+      }
+    },
+  );
 }

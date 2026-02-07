@@ -7,6 +7,7 @@ import {
   Copy,
   ClipboardPaste,
   ChevronDown,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,13 @@ import {
   COMMON_ATTRIBUTES_BY_TYPE,
 } from "../../shared/types";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { TagRulesEditor } from "./TagRulesEditor";
 
 export function TagInspector() {
   const files = useFileStore((s) => s.files);
@@ -33,6 +41,7 @@ export function TagInspector() {
   const [loading, setLoading] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const copyTags = useClipboardStore((s) => s.copyTags);
+  const [showRulesDialog, setShowRulesDialog] = useState(false);
   const hasCopiedTags = useClipboardStore((s) => s.hasCopiedTags);
   const copiedTags = useClipboardStore((s) => s.copiedTags);
 
@@ -231,6 +240,15 @@ export function TagInspector() {
             <Undo2 className="h-3 w-3" /> Undo
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1"
+          onClick={() => setShowRulesDialog(true)}
+          title="Tag Rules"
+        >
+          <Settings className="h-4 w-4" /> Tag Rules
+        </Button>
       </div>
 
       {/* Tags editor */}
@@ -381,6 +399,18 @@ export function TagInspector() {
           </div>
         )}
       </ScrollArea>
+
+      {/* Tag Rules Modal Dialog */}
+      <Dialog open={showRulesDialog} onOpenChange={setShowRulesDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Tag Rules</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <TagRulesEditor />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Save button */}
       <div className="p-3 border-t border-border">

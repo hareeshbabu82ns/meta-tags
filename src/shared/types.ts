@@ -194,6 +194,11 @@ export interface ScanProgress {
   current: string;
 }
 
+export interface AlbumArtResult {
+  data: string; // base64-encoded image data
+  format: string; // MIME type e.g. 'image/jpeg'
+}
+
 // IPC API exposed to renderer via contextBridge
 export interface ElectronAPI {
   // Libraries
@@ -243,6 +248,13 @@ export interface ElectronAPI {
 
   // File Streaming
   getStreamUrl(filePath: string): string;
+
+  // File Viewers
+  getAlbumArt(filePath: string): Promise<AlbumArtResult | null>;
+  setAlbumArt(filePath: string, imagePath: string): Promise<boolean>;
+  removeAlbumArt(filePath: string): Promise<boolean>;
+  selectImageFile(): Promise<string | null>;
+  readFileAsBase64(filePath: string): Promise<string>;
 
   // Folder tree
   getFolderTree(libraryId: number): Promise<FolderNode[]>;

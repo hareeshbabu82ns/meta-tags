@@ -1,0 +1,44 @@
+// IPC channel name constants — shared between main and preload
+export const IPC = {
+  // Libraries
+  GET_LIBRARIES: "db:get-libraries",
+  ADD_LIBRARY: "db:add-library",
+  REMOVE_LIBRARY: "db:remove-library",
+  SELECT_FOLDER: "dialog:select-folder",
+
+  // Scanning
+  SCAN_LIBRARY: "scan:library",
+  SCAN_PROGRESS: "scan:progress",
+  SCAN_COMPLETE: "scan:complete",
+
+  // Files
+  GET_FILES: "db:get-files",
+  GET_FILES_BY_FOLDER: "db:get-files-by-folder",
+  SEARCH_FILES: "db:search-files",
+
+  // Tags
+  GET_FILE_TAGS: "db:get-file-tags",
+  GET_MULTIPLE_FILE_TAGS: "db:get-multiple-file-tags",
+
+  // Pending Changes
+  QUEUE_TAG_CHANGE: "changes:queue",
+  QUEUE_BULK_TAG_CHANGES: "changes:queue-bulk",
+  GET_PENDING_CHANGES: "changes:get-pending",
+  APPLY_PENDING_CHANGES: "changes:apply",
+  REJECT_PENDING_CHANGES: "changes:reject",
+  CLEAR_PENDING_CHANGES: "changes:clear",
+
+  // Tag History
+  GET_TAG_HISTORY: "history:get",
+  UNDO_LAST_CHANGE: "history:undo",
+
+  // Tag Rules
+  GET_TAG_RULES: "rules:get",
+  CREATE_TAG_RULE: "rules:create",
+  UPDATE_TAG_RULE: "rules:update",
+  DELETE_TAG_RULE: "rules:delete",
+  PREVIEW_TAG_RULE: "rules:preview",
+
+  // Folder tree
+  GET_FOLDER_TREE: "fs:get-folder-tree",
+} as const;

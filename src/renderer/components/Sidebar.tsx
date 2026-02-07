@@ -29,9 +29,9 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-64 border-r border-border flex flex-col bg-sidebar-background">
+    <div className="flex-1 border-r border-border flex flex-col bg-sidebar-background overflow-hidden">
       {/* Library header */}
-      <div className="p-3 flex items-center justify-between">
+      <div className="p-3 flex items-center justify-between shrink-0">
         <h2 className="text-sm font-semibold text-sidebar-foreground">
           Libraries
         </h2>

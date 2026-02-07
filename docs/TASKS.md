@@ -44,21 +44,26 @@
 - [x] ARCHITECTURE.md — system design, data flow, directory structure
 - [x] TASKS.md — this file
 
----
-
-## 🔲 Remaining Tasks
-
 ### Phase 2 — Tag Rules UI
 
-- [ ] Create `TagRulesEditor.tsx` component
+- [x] TagRulesEditor.tsx component with full feature set:
   - Rule list with create/edit/delete
   - Regex input with live syntax validation
   - Template builder with capture group helpers ($1, $2, etc.)
   - Source field selector (filename, folder, tag:\*, index, datetime)
-- [ ] Add "Rules" tab or panel in main layout
-- [ ] Live preview: select files → pick rule → show proposed changes inline
-- [ ] "Apply Rule" button that feeds results into pending changes queue
-- [ ] Import/export rules as JSON
+  - Live preview using first selected file
+  - Embedded regex help panel with 50+ patterns
+- [x] Integrated into App.tsx as modal dialog
+- [x] Floating rules button to open/close panel
+- [x] "Apply Rule" button that queues changes to pending changes panel
+- [x] Import/export rules as JSON files
+- [x] Live preview on rule list showing source → target mapping
+
+---
+
+---
+
+## 🔲 Remaining Tasks
 
 ### Phase 3 — File Viewers
 

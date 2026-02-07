@@ -170,8 +170,12 @@ export function PendingChangesPanel() {
                       {change.old_value || "(empty)"}
                     </span>
                     <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium">
-                      {change.new_value}
+                    <span
+                      className={`truncate font-medium ${change.new_value === null ? "text-destructive" : ""}`}
+                    >
+                      {change.new_value === null
+                        ? "(delete)"
+                        : change.new_value}
                     </span>
                   </div>
                 ))}

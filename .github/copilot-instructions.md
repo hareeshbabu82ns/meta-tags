@@ -16,24 +16,64 @@ Meta Tags is an Electron desktop app for managing metadata tags on music (MP3, F
 - **Icons**: lucide-react (tree-shakeable)
 - **Utilities**: clsx + tailwind-merge via `cn()` helper at `@/lib/utils`
 
+## Developer Workflow
+
+```bash
+npm start          # Launch dev mode (Electron Forge + Vite HMR)
+npm run package    # Package the app (no installer)
+npm run make       # Build distributable installers
+npm run lint       # ESLint across .ts/.tsx files
+```
+
+No test framework is currently configured. Native module `better-sqlite3` is rebuilt automatically by `@electron/rebuild` during `npm install`.
+
 ## Architecture Rules
 
 ### Electron Process Separation (CRITICAL)
 
-- **Main process** (`src/main/`): Node.js APIs, SQLite, file system, IPC handlers. Never import React or renderer code here.
-- **Renderer process** (`src/renderer/`): React components, Zustand stores, UI only. Never import `electron`, `fs`, `path`, or `better-sqlite3` here.
-- **Preload** (`src/preload.ts`): The only bridge. Exposes `window.electronAPI` via `contextBridge.exposeInMainWorld()`. All renderer↔main communication uses typed IPC through this API.
-- **Shared** (`src/shared/`): Types and IPC channel constants only. No runtime code that depends on Node.js or browser APIs.
+| Layer        | Directory        | Rules                                                                             |
+| ------------ | ---------------- | --------------------------------------------------------------------------------- |
+| **Main**     | `src/main/`      | Node.js APIs, SQLite, file system, IPC handlers. Never import React here.         |
+| **Renderer** | `src/renderer/`  | React, Zustand, UI only. Never import `electron`, `fs`, `path`, `better-sqlite3`. |
+| **Preload**  | `src/preload.ts` | Only bridge. Exposes typed `window.electronAPI` via `contextBridge`.              |
+| **Shared**   | `src/shared/`    | Types + IPC channel constants only. No Node.js or browser runtime code.           |
 
-### Adding New IPC Channels
+The `ElectronAPI` interface and `declare global { Window }` live in `src/shared/types.ts`.
 
-When adding new functionality that requires main↔renderer communication:
+### IPC Communication — Two Patterns
 
-1. Add channel name constant to `src/shared/ipc-channels.ts`
-2. Add the method signature to the `ElectronAPI` interface in `src/shared/types.ts`
-3. Register the handler with `ipcMain.handle()` in `src/main/ipc/handlers.ts`
-4. Expose the method in `src/preload.ts` using `ipcRenderer.invoke()`
-5. Call it from the renderer via `window.electronAPI.methodName()`
+**Request-response** (most channels): `ipcRenderer.invoke()` ↔ `ipcMain.handle()`.
+
+**One-way events** (scan progress): Main pushes via `win.webContents.send()`. Preload wraps with `ipcRenderer.on()` and returns an unsubscribe function:
+
+```ts
+onScanProgress: (callback) => {
+  const handler = (_event, progress) => callback(progress);
+  ipcRenderer.on(IPC.SCAN_PROGRESS, handler);
+  return () => ipcRenderer.removeListener(IPC.SCAN_PROGRESS, handler);
+},
+```
+
+### Adding New IPC Channels — 6-step checklist
+
+1. Channel constant → `src/shared/ipc-channels.ts`
+2. Method signature → `ElectronAPI` interface in `src/shared/types.ts`
+3. SQL queries → `src/main/db/queries.ts` (never inline SQL in handlers)
+4. Handler → `ipcMain.handle()` in `src/main/ipc/handlers.ts`
+5. Bridge → `ipcRenderer.invoke()` in `src/preload.ts`
+6. Call from renderer via `window.electronAPI.methodName()`
+
+## Zustand Stores
+
+All 6 stores live in `src/renderer/stores/index.ts`, separated by `// ─── Name ───` comment headers:
+
+`useLibraryStore` (libraries, folder tree), `useFileStore` (file list, selection as `Set<number>`), `useClipboardStore` (copied tags), `useScanStore` (scan progress), `usePendingChangesStore` (panel toggle), `usePlayerStore` (audio playback).
+
+**Always use individual selectors** to prevent re-renders: `const libs = useLibraryStore((s) => s.libraries);`
+
+**Cross-store access** (outside React): `useLibraryStore.getState().activeLibraryId` — never use hooks.
+
+**External state updates**: Scan progress is set from `App.tsx` via `useScanStore.setState()` since it originates from IPC events.
 
 ### Vite Configuration
 
@@ -43,7 +83,13 @@ There are 3 separate Vite configs — main, renderer, preload — orchestrated b
 - `vite.main.config.ts` externalizes `better-sqlite3` via rollupOptions (native module).
 - Path alias `@/*` → `./src/*` is configured in both tsconfig and vite.renderer.config.
 
-## Code Conventions
+## Key Conventions
+
+- **TypeScript**: `strict: true`, use `type` imports, prefix unused params with `_`, no `any`.
+- **Components**: Named exports (`export function Sidebar() {}`), shadcn/ui in `src/components/ui/`.
+- **Tailwind v4**: No config file. Semantic tokens from `src/index.css` (HSL). Dark mode via `.dark` class.
+- **Database**: All SQL in `src/main/db/queries.ts`. Prepared statements. Schema migrations in `src/main/db/database.ts`. Tables: `libraries`, `files`, `tags`, `tag_rules`, `tag_history`, `tag_clipboard`.
+- **Services**: Pure functions in `src/main/services/`. Receive `BrowserWindow` as param if needed — don't import `electron` directly.
 
 ### TypeScript
 
@@ -56,9 +102,11 @@ There are 3 separate Vite configs — main, renderer, preload — orchestrated b
 
 - Named exports for all components: `export function Sidebar() {}`
 - Use individual Zustand selectors to prevent unnecessary re-renders:
+
   ```ts
   const libraries = useLibraryStore((s) => s.libraries);
   ```
+
 - Icons come from `lucide-react` — import only what's needed
 - Use `cn()` from `@/lib/utils` for conditional class merging
 - shadcn/ui components live in `src/components/ui/` and use Radix primitives
@@ -78,6 +126,18 @@ There are 3 separate Vite configs — main, renderer, preload — orchestrated b
 - Schema migrations run in `src/main/db/database.ts` on app startup
 - Tags use a key-value model with unique constraint on `(file_id, key)`
 
+### Pending Changes & Tag Writing
+
+All tag writes MUST go through the pending changes queue (in-memory array in `src/main/ipc/handlers.ts`):
+
+1. Queue changes via `changes:queue` / `changes:queue-bulk`
+2. Apply writes to file + record in `tag_history` for undo
+
+**MP3**: Native ID3 via `node-id3` (key mapping in `src/main/services/tag-writer.ts`, e.g. `album_artist` → `performerInfo`).
+**All others**: Sidecar `.meta.json` file alongside the original.
+
+Tag rules (`src/main/services/rule-engine.ts`) use regex capture groups. `source_field` values: `filename`, `folder`, `index`, `datetime`, `tag:<key>`.
+
 ### Pending Changes Workflow
 
 All tag modifications go through the pending changes queue:
@@ -93,6 +153,10 @@ All tag modifications go through the pending changes queue:
 - **MP3**: Native ID3 tags via `node-id3`
 - **FLAC, OGG, WAV, PDF, EPUB**: Sidecar `.meta.json` file alongside the original
 - Always record tag history before writing for undo capability
+
+## Audio Playback
+
+Custom `media://` protocol registered in `src/main.ts` streams local files. `getStreamUrl()` in preload returns `media://file<encodedPath>` — synchronous, not IPC.
 
 ## File Naming Conventions
 
@@ -133,3 +197,7 @@ Place in `src/main/services/`, export pure functions, import in `src/main/ipc/ha
 - ❌ Do NOT use `any` — prefer `unknown` + type guards or specific types
 - ❌ Do NOT bypass the pending changes queue for tag writes — always queue first
 - ❌ Do NOT use `nodeIntegration: true` — the app relies on context isolation
+
+```
+
+```

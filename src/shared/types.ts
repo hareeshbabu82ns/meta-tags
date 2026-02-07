@@ -87,7 +87,7 @@ export interface PendingChange {
   filename: string;
   key: string;
   old_value: string | null;
-  new_value: string;
+  new_value: string | null; // null means delete
   status: "pending" | "applied" | "rejected";
 }
 
@@ -113,6 +113,78 @@ export const COMMON_TAG_FIELDS = [
 ] as const;
 
 export type CommonTagField = (typeof COMMON_TAG_FIELDS)[number];
+
+// File-type-specific common attributes for quick access
+export const COMMON_ATTRIBUTES_BY_TYPE: Record<FileType, CommonTagField[]> = {
+  mp3: [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "year",
+    "track",
+    "disc",
+    "composer",
+    "comment",
+  ],
+  flac: [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "year",
+    "track",
+    "disc",
+    "composer",
+    "comment",
+  ],
+  ogg: [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "year",
+    "track",
+    "disc",
+    "composer",
+    "comment",
+  ],
+  wav: [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "year",
+    "track",
+    "disc",
+    "composer",
+    "comment",
+  ],
+  pdf: [
+    "title",
+    "author",
+    "subject",
+    "keywords",
+    "publisher",
+    "description",
+    "language",
+    "year",
+  ],
+  epub: [
+    "title",
+    "author",
+    "subject",
+    "keywords",
+    "publisher",
+    "description",
+    "language",
+    "year",
+  ],
+};
 
 // ─── IPC Channel Types ─────────────────────────────────────────────────
 

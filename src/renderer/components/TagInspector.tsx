@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Save, Plus, Trash2, Undo2, Copy, ClipboardPaste } from "lucide-react";
+import {
+  Save,
+  Plus,
+  Trash2,
+  Undo2,
+  Copy,
+  ClipboardPaste,
+  ChevronDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,17 +15,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useFileStore, useClipboardStore } from "../stores";
-import type { Tag } from "../../shared/types";
-import { COMMON_TAG_FIELDS } from "../../shared/types";
+import type { Tag, FileType } from "../../shared/types";
+import {
+  COMMON_TAG_FIELDS,
+  COMMON_ATTRIBUTES_BY_TYPE,
+} from "../../shared/types";
+import { cn } from "@/lib/utils";
 
 export function TagInspector() {
   const files = useFileStore((s) => s.files);
   const selectedFileIds = useFileStore((s) => s.selectedFileIds);
   const [tags, setTags] = useState<Tag[]>([]);
   const [editedTags, setEditedTags] = useState<Record<string, string>>({});
+  const [removedKeys, setRemovedKeys] = useState<Set<string>>(new Set());
   const [customKey, setCustomKey] = useState("");
   const [customValue, setCustomValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const copyTags = useClipboardStore((s) => s.copyTags);
   const hasCopiedTags = useClipboardStore((s) => s.hasCopiedTags);
   const copiedTags = useClipboardStore((s) => s.copiedTags);
@@ -48,6 +62,7 @@ export function TagInspector() {
           initial[tag.key] = tag.value;
         }
         setEditedTags(initial);
+        setRemovedKeys(new Set());
       } else {
         // Multi-select: show common tags
         const allTags =
@@ -73,6 +88,7 @@ export function TagInspector() {
             initial[tag.key] = allSame ? tag.value : "(mixed)";
           }
           setEditedTags(initial);
+          setRemovedKeys(new Set());
         }
       }
     } finally {
@@ -90,6 +106,7 @@ export function TagInspector() {
       if (!file) continue;
       const fileTags = await window.electronAPI.getFileTags(file.id);
 
+      // Queue value changes
       for (const [key, value] of Object.entries(editedTags)) {
         if (value === "(mixed)") continue;
         const existing = fileTags.find((t) => t.key === key);
@@ -104,10 +121,26 @@ export function TagInspector() {
           new_value: value,
         });
       }
+
+      // Queue delete changes for removed tags
+      for (const key of removedKeys) {
+        const existing = fileTags.find((t) => t.key === key);
+        if (existing) {
+          changes.push({
+            file_id: file.id,
+            file_path: file.path,
+            filename: file.filename,
+            key,
+            old_value: existing.value,
+            new_value: null,
+          });
+        }
+      }
     }
 
     if (changes.length > 0) {
       await window.electronAPI.queueBulkTagChanges(changes);
+      setRemovedKeys(new Set());
     }
   };
 
@@ -119,6 +152,11 @@ export function TagInspector() {
   };
 
   const handleRemoveTag = (key: string) => {
+    // Track removal so we can queue a delete pending change
+    const existsInFile = tags.some((t) => t.key === key);
+    if (existsInFile) {
+      setRemovedKeys((prev) => new Set(prev).add(key));
+    }
     setEditedTags((prev) => {
       const next = { ...prev };
       delete next[key];
@@ -201,6 +239,48 @@ export function TagInspector() {
           <p className="text-sm text-muted-foreground">Loading tags...</p>
         ) : (
           <div className="space-y-3">
+            {/* Quick Add section for file-type-specific common attributes */}
+            {selectedFile && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowQuickAdd(!showQuickAdd)}
+                  className="flex items-center gap-2 text-xs font-semibold text-foreground hover:text-accent transition-colors"
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      showQuickAdd && "rotate-180",
+                    )}
+                  />
+                  Quick Add ({selectedFile.type.toUpperCase()})
+                </button>
+                {showQuickAdd && (
+                  <div className="grid grid-cols-2 gap-2 pl-4">
+                    {COMMON_ATTRIBUTES_BY_TYPE[selectedFile.type as FileType]
+                      .filter((field) => editedTags[field] === undefined)
+                      .map((field) => (
+                        <Button
+                          key={field}
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setEditedTags((prev) => ({
+                              ...prev,
+                              [field]: "",
+                            }))
+                          }
+                          className="justify-start text-xs h-7"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          {field.replace("_", " ")}
+                        </Button>
+                      ))}
+                  </div>
+                )}
+                <Separator />
+              </div>
+            )}
+
             {/* Common fields */}
             {COMMON_TAG_FIELDS.map((field) => {
               const value = editedTags[field];

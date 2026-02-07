@@ -5,6 +5,7 @@ import {
   addTagHistory,
   getFileTags,
   getFileById,
+  deleteFileTag,
 } from "../db/queries";
 
 /**
@@ -119,4 +120,88 @@ async function writeSidecarTag(
 
   existing[key] = value;
   fs.writeFileSync(sidecarPath, JSON.stringify(existing, null, 2), "utf-8");
+}
+
+async function deleteSidecarTag(filePath: string, key: string): Promise<void> {
+  const sidecarPath = filePath + ".meta.json";
+  let existing: Record<string, string> = {};
+
+  try {
+    if (fs.existsSync(sidecarPath)) {
+      existing = JSON.parse(fs.readFileSync(sidecarPath, "utf-8"));
+    }
+  } catch {
+    // Ignore parse errors
+  }
+
+  delete existing[key];
+
+  if (Object.keys(existing).length === 0) {
+    // Remove empty sidecar file
+    if (fs.existsSync(sidecarPath)) {
+      fs.unlinkSync(sidecarPath);
+    }
+  } else {
+    fs.writeFileSync(sidecarPath, JSON.stringify(existing, null, 2), "utf-8");
+  }
+}
+
+/**
+ * Delete a single tag from a file. Removes from disk and updates the DB.
+ */
+export async function deleteTagFromFile(
+  fileId: number,
+  key: string,
+): Promise<boolean> {
+  const file = getFileById(fileId);
+  if (!file) throw new Error(`File not found: ${fileId}`);
+
+  const type = getFileType(file.filename);
+  if (!type) throw new Error(`Unknown file type: ${file.filename}`);
+
+  // Get old value for history
+  const existingTags = getFileTags(fileId);
+  const existing = existingTags.find((t) => t.key === key);
+  const oldValue = existing?.value ?? null;
+
+  // Delete from file
+  if (type === "mp3") {
+    await deleteAudioTag(file.path, key);
+  } else if (["flac", "ogg", "wav", "pdf", "epub"].includes(type)) {
+    await deleteSidecarTag(file.path, key);
+  }
+
+  // Update database
+  addTagHistory(fileId, key, oldValue, null, "delete");
+  deleteFileTag(fileId, key);
+
+  return true;
+}
+
+async function deleteAudioTag(filePath: string, key: string): Promise<void> {
+  // For MP3, use node-id3 to remove the tag
+  const NodeID3 = require("node-id3");
+
+  const id3Map: Record<string, string> = {
+    title: "title",
+    artist: "artist",
+    album: "album",
+    genre: "genre",
+    year: "year",
+    track: "trackNumber",
+    comment: "comment",
+    album_artist: "performerInfo",
+    composer: "composer",
+    disc: "partOfSet",
+  };
+
+  const id3Key = id3Map[key];
+  if (id3Key) {
+    const tags = NodeID3.read(filePath);
+    delete tags[id3Key];
+    const result = NodeID3.update(tags, filePath);
+    if (result !== true) {
+      throw new Error(`Failed to delete ID3 tag: ${key}`);
+    }
+  }
 }

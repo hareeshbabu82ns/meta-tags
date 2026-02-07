@@ -93,6 +93,14 @@ export function FileList() {
     // For documents, we could open a viewer (future enhancement)
   };
 
+  const handleSelectFile = (file: FileRecord, multi: boolean) => {
+    selectFile(file.id, multi);
+    // Show audio player for audio files
+    if (getFileCategory(file.type) === "audio") {
+      play(file);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Search bar */}
@@ -167,7 +175,7 @@ export function FileList() {
                 selected={selectedFileIds.has(file.id)}
                 onSelect={(multi) => {
                   if (multi) toggleSelection(file.id);
-                  else selectFile(file.id);
+                  else handleSelectFile(file, false);
                 }}
                 onDoubleClick={() => handleDoubleClick(file)}
                 onCopyTags={() => handleCopyTags(file.id)}

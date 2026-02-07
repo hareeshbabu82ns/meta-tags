@@ -21,13 +21,14 @@ export function AudioPlayer() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
 
   useEffect(() => {
     if (!audioRef.current || !currentFile) return;
     const url = window.electronAPI.getStreamUrl(currentFile.path);
     audioRef.current.src = url;
-    audioRef.current.play().catch(console.error);
-  }, [currentFile]);
+    setPlaying(false);
+  }, [currentFile, setPlaying]);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -45,7 +46,7 @@ export function AudioPlayer() {
   }, [volume, muted]);
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
+    if (audioRef.current && !isSeeking) {
       setCurrentTime(audioRef.current.currentTime);
     }
   };
@@ -56,12 +57,20 @@ export function AudioPlayer() {
     }
   };
 
+  const handleSeekStart = () => {
+    setIsSeeking(true);
+  };
+
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = Number(e.target.value);
     setCurrentTime(time);
     if (audioRef.current) {
       audioRef.current.currentTime = time;
     }
+  };
+
+  const handleSeekEnd = () => {
+    setIsSeeking(false);
   };
 
   const formatTime = (seconds: number) => {
@@ -73,7 +82,7 @@ export function AudioPlayer() {
   if (!currentFile) return null;
 
   return (
-    <div className="border-t border-border bg-card px-4 py-2">
+    <div className="border-b border-border bg-card px-4 py-2">
       <audio
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
@@ -121,6 +130,10 @@ export function AudioPlayer() {
           max={duration || 0}
           value={currentTime}
           onChange={handleSeek}
+          onMouseDown={handleSeekStart}
+          onMouseUp={handleSeekEnd}
+          onTouchStart={handleSeekStart}
+          onTouchEnd={handleSeekEnd}
           className="flex-1 h-1 accent-primary cursor-pointer"
         />
         <span className="text-xs text-muted-foreground w-10">

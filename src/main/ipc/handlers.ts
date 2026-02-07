@@ -3,7 +3,7 @@ import { IPC } from "../../shared/ipc-channels";
 import type { PendingChange, TagRule } from "../../shared/types";
 import * as queries from "../db/queries";
 import { scanLibrary } from "../services/scanner";
-import { writeTagToFile } from "../services/tag-writer";
+import { writeTagToFile, deleteTagFromFile } from "../services/tag-writer";
 import { previewTagRule } from "../services/rule-engine";
 import { v4 as uuidv4 } from "uuid";
 
@@ -117,7 +117,11 @@ export function registerIpcHandlers(): void {
       }
 
       try {
-        await writeTagToFile(change.file_id, change.key, change.new_value);
+        if (change.new_value === null) {
+          await deleteTagFromFile(change.file_id, change.key);
+        } else {
+          await writeTagToFile(change.file_id, change.key, change.new_value);
+        }
         change.status = "applied";
         success.push(id);
       } catch (err) {

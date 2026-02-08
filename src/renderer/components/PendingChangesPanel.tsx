@@ -6,7 +6,9 @@ import {
   X,
   Trash2,
   ArrowRight,
+  ClipboardList,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -52,10 +54,16 @@ export function PendingChangesPanel() {
     try {
       const result = await window.electronAPI.applyPendingChanges(ids);
       if (result.failed.length > 0) {
-        console.error("Some changes failed:", result.failed);
+        toast.warning(
+          `Applied ${result.success.length} changes, ${result.failed.length} failed`,
+        );
+      } else {
+        toast.success(`Applied ${result.success.length} changes successfully`);
       }
       await loadChanges();
       setSelectedIds(new Set());
+    } catch {
+      toast.error("Failed to apply changes");
     } finally {
       setApplying(false);
     }
@@ -65,6 +73,7 @@ export function PendingChangesPanel() {
     const ids =
       selectedIds.size > 0 ? Array.from(selectedIds) : changes.map((c) => c.id);
     await window.electronAPI.rejectPendingChanges(ids);
+    toast.info(`Rejected ${ids.length} changes`);
     await loadChanges();
     setSelectedIds(new Set());
   };
@@ -73,6 +82,7 @@ export function PendingChangesPanel() {
     await window.electronAPI.clearPendingChanges();
     setChanges([]);
     setSelectedIds(new Set());
+    toast.info("Cleared all pending changes");
   };
 
   return (
@@ -144,8 +154,12 @@ export function PendingChangesPanel() {
           {/* Changes list */}
           <ScrollArea className="max-h-48">
             {changes.length === 0 ? (
-              <div className="text-center py-4 text-xs text-muted-foreground">
-                No pending changes
+              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground gap-2">
+                <ClipboardList className="h-8 w-8 opacity-20" />
+                <p className="text-xs">No pending changes</p>
+                <p className="text-[10px] opacity-70">
+                  Edit tags and queue changes to see them here
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-border">

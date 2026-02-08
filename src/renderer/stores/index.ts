@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type {
   Library,
   FileRecord,
@@ -74,11 +75,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
 // ─── File Store ────────────────────────────────────────────────────────
 
+export type SortField = "filename" | "type" | "size" | "modified_at";
+export type SortDirection = "asc" | "desc";
+
 interface FileState {
   files: FileRecord[];
   selectedFileIds: Set<number>;
   loading: boolean;
   searchQuery: string;
+  sortField: SortField;
+  sortDirection: SortDirection;
+  fileTags: Record<number, Record<string, string>>; // file_id -> {key: value}
   loadFiles: () => Promise<void>;
   loadFilesByFolder: (folderPath: string) => Promise<void>;
   search: (query: string) => Promise<void>;
@@ -87,6 +94,33 @@ interface FileState {
   selectAll: () => void;
   clearSelection: () => void;
   toggleSelection: (id: number) => void;
+  setSort: (field: SortField) => void;
+  loadFileTags: (fileIds: number[]) => Promise<void>;
+}
+
+function sortFiles(
+  files: FileRecord[],
+  field: SortField,
+  direction: SortDirection,
+): FileRecord[] {
+  return [...files].sort((a, b) => {
+    let cmp = 0;
+    switch (field) {
+      case "filename":
+        cmp = a.filename.localeCompare(b.filename);
+        break;
+      case "type":
+        cmp = a.type.localeCompare(b.type);
+        break;
+      case "size":
+        cmp = a.size - b.size;
+        break;
+      case "modified_at":
+        cmp = a.modified_at.localeCompare(b.modified_at);
+        break;
+    }
+    return direction === "asc" ? cmp : -cmp;
+  });
 }
 
 export const useFileStore = create<FileState>((set, get) => ({
@@ -94,19 +128,29 @@ export const useFileStore = create<FileState>((set, get) => ({
   selectedFileIds: new Set(),
   loading: false,
   searchQuery: "",
+  sortField: "filename",
+  sortDirection: "asc",
+  fileTags: {},
 
   loadFiles: async () => {
     const libId = useLibraryStore.getState().activeLibraryId;
     if (!libId) return;
     set({ loading: true });
     const files = await window.electronAPI.getFiles(libId);
-    set({ files, loading: false, selectedFileIds: new Set() });
+    const { sortField, sortDirection } = get();
+    const sorted = sortFiles(files, sortField, sortDirection);
+    set({ files: sorted, loading: false, selectedFileIds: new Set() });
+    // Load tags for file list columns
+    get().loadFileTags(sorted.map((f) => f.id));
   },
 
   loadFilesByFolder: async (folderPath: string) => {
     set({ loading: true });
     const files = await window.electronAPI.getFilesByFolder(folderPath);
-    set({ files, loading: false, selectedFileIds: new Set() });
+    const { sortField, sortDirection } = get();
+    const sorted = sortFiles(files, sortField, sortDirection);
+    set({ files: sorted, loading: false, selectedFileIds: new Set() });
+    get().loadFileTags(sorted.map((f) => f.id));
   },
 
   search: async (query: string) => {
@@ -147,6 +191,33 @@ export const useFileStore = create<FileState>((set, get) => ({
       else next.add(id);
       return { selectedFileIds: next };
     });
+  },
+
+  setSort: (field) => {
+    set((s) => {
+      const direction =
+        s.sortField === field && s.sortDirection === "asc" ? "desc" : "asc";
+      const sorted = sortFiles(s.files, field, direction);
+      return { sortField: field, sortDirection: direction, files: sorted };
+    });
+  },
+
+  loadFileTags: async (fileIds) => {
+    if (fileIds.length === 0) return;
+    try {
+      const allTags = await window.electronAPI.getMultipleFileTags(fileIds);
+      const tagMap: Record<number, Record<string, string>> = {};
+      for (const [idStr, tags] of Object.entries(allTags)) {
+        const id = Number(idStr);
+        tagMap[id] = {};
+        for (const t of tags) {
+          tagMap[id][t.key] = t.value;
+        }
+      }
+      set((s) => ({ fileTags: { ...s.fileTags, ...tagMap } }));
+    } catch {
+      // silently fail — tags are just supplemental info
+    }
   },
 }));
 
@@ -231,3 +302,51 @@ export const useViewerStore = create<ViewerState>((set) => ({
   openViewer: (file) => set({ viewerFile: file }),
   closeViewer: () => set({ viewerFile: null }),
 }));
+
+// ─── Settings Store ────────────────────────────────────────────────────
+
+export type ThemeMode = "light" | "dark" | "system";
+
+interface SettingsState {
+  theme: ThemeMode;
+  fileListView: "list" | "table";
+  setTheme: (theme: ThemeMode) => void;
+  setFileListView: (view: "list" | "table") => void;
+  applyTheme: () => void;
+}
+
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set, get) => ({
+      theme: "dark" as ThemeMode,
+      fileListView: "table" as "list" | "table",
+
+      setTheme: (theme) => {
+        set({ theme });
+        // Apply immediately
+        applyThemeToDOM(theme);
+      },
+
+      setFileListView: (view) => set({ fileListView: view }),
+
+      applyTheme: () => {
+        applyThemeToDOM(get().theme);
+      },
+    }),
+    {
+      name: "meta-tags-settings",
+    },
+  ),
+);
+
+function applyThemeToDOM(theme: ThemeMode) {
+  const root = document.body;
+  if (theme === "system") {
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
+    root.classList.toggle("dark", prefersDark);
+  } else {
+    root.classList.toggle("dark", theme === "dark");
+  }
+}

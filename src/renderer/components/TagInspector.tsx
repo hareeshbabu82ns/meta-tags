@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Save,
   Plus,
@@ -8,13 +8,16 @@ import {
   ClipboardPaste,
   ChevronDown,
   Settings,
+  FileQuestion,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useFileStore, useClipboardStore } from "../stores";
 import type { Tag, FileType } from "../../shared/types";
 import {
@@ -150,8 +153,22 @@ export function TagInspector() {
     if (changes.length > 0) {
       await window.electronAPI.queueBulkTagChanges(changes);
       setRemovedKeys(new Set());
+      toast.success(`Queued ${changes.length} tag changes`);
+    } else {
+      toast.info("No changes to queue");
     }
   };
+
+  // Listen for Cmd+S keyboard shortcut
+  useEffect(() => {
+    const handler = () => {
+      if (selectedIds.length > 0) {
+        handleSaveToQueue();
+      }
+    };
+    window.addEventListener("meta-tags:save", handler);
+    return () => window.removeEventListener("meta-tags:save", handler);
+  }, [selectedIds, editedTags, removedKeys]);
 
   const handleAddCustomTag = () => {
     if (!customKey.trim()) return;
@@ -182,17 +199,24 @@ export function TagInspector() {
       source: "native" as const,
     }));
     copyTags(asTags);
+    toast.success(`Copied ${asTags.length} tags`);
   };
 
   const handlePaste = () => {
     if (!hasCopiedTags) return;
     setEditedTags((prev) => ({ ...prev, ...copiedTags }));
+    toast.success(`Pasted ${Object.keys(copiedTags).length} tags`);
   };
 
   const handleUndo = async () => {
     if (!singleFileId) return;
-    await window.electronAPI.undoLastChange(singleFileId);
-    await loadTags();
+    try {
+      await window.electronAPI.undoLastChange(singleFileId);
+      await loadTags();
+      toast.success("Undid last change");
+    } catch {
+      toast.error("Nothing to undo");
+    }
   };
 
   return (
@@ -253,8 +277,23 @@ export function TagInspector() {
 
       {/* Tags editor */}
       <ScrollArea className="flex-1 p-3">
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading tags...</p>
+        {selectedIds.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
+            <FileQuestion className="h-10 w-10 opacity-20" />
+            <p className="text-sm font-medium">No file selected</p>
+            <p className="text-xs text-center max-w-40">
+              Select a file to view and edit its tags
+            </p>
+          </div>
+        ) : loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="space-y-3">
             {/* Quick Add section for file-type-specific common attributes */}

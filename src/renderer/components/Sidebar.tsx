@@ -7,7 +7,9 @@ import {
   ChevronRight,
   ChevronDown,
   Folder,
+  FolderInput,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -23,13 +25,63 @@ export function Sidebar() {
   const removeLibrary = useLibraryStore((s) => s.removeLibrary);
   const setActiveLibrary = useLibraryStore((s) => s.setActiveLibrary);
   const setActiveFolder = useLibraryStore((s) => s.setActiveFolder);
+  const [isDragOver, setIsDragOver] = React.useState(false);
 
   const handleScan = async (libId: number) => {
     await window.electronAPI.scanLibrary(libId);
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const items = e.dataTransfer.files;
+    if (items.length === 0) return;
+
+    // We can only get the path via the file object
+    // In Electron with contextIsolation, file.path gives the real path
+    for (let i = 0; i < items.length; i++) {
+      const file = items[i];
+      const filePath = (file as unknown as { path: string }).path;
+      if (filePath) {
+        try {
+          const name = filePath.split("/").pop() || filePath;
+          const lib = await window.electronAPI.addLibrary(filePath, name);
+          useLibraryStore.setState((s) => ({
+            libraries: [...s.libraries, lib],
+          }));
+          await useLibraryStore.getState().setActiveLibrary(lib.id);
+          await window.electronAPI.scanLibrary(lib.id);
+          toast.success(`Added library: ${name}`);
+        } catch {
+          toast.error("Could not add folder as library");
+        }
+      }
+    }
+  };
+
   return (
-    <div className="flex-1 border-r border-border flex flex-col bg-sidebar overflow-hidden">
+    <div
+      className={`flex-1 border-r border-border flex flex-col bg-sidebar overflow-hidden transition-colors ${
+        isDragOver ? "ring-2 ring-inset ring-primary/50 bg-primary/5" : ""
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Library header */}
       <div className="p-3 flex items-center justify-between shrink-0">
         <h2 className="text-sm font-semibold text-sidebar-foreground">
@@ -109,9 +161,9 @@ export function Sidebar() {
 
           {libraries.length === 0 && (
             <div className="text-center text-muted-foreground text-xs py-8">
-              <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <FolderInput className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>No libraries yet</p>
-              <p className="mt-1">Click + to add a folder</p>
+              <p className="mt-1">Click + or drop a folder here</p>
             </div>
           )}
         </div>

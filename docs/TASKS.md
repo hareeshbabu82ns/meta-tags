@@ -66,31 +66,31 @@
 - [x] Album art / cover display for audio files
 - [x] Double-click to open document viewer
 
----
-
----
-
-## 🔲 Remaining Tasks
-
 ### Phase 4 — Polish & UX
 
-- [ ] Keyboard shortcuts
+- [x] Keyboard shortcuts
   - `Cmd+C` / `Cmd+V` for tag copy/paste
   - `Cmd+Z` for undo
   - `Cmd+A` for select all
   - `Cmd+S` for queue changes
   - `Cmd+Shift+A` to apply all pending
-- [ ] Column sorting in FileList (by name, type, size, date)
-- [ ] Column-based tag display in FileList (title, artist, album columns)
-- [ ] Drag-and-drop files/folders into library
-- [ ] Settings page
-  - Theme toggle (dark/light)
-  - Default tag fields configuration
-  - Sidecar file location preference
-  - Database location preference
-- [ ] Toast notifications for apply success/failure
-- [ ] Empty state illustrations
-- [ ] Loading skeletons
+  - `Escape` to clear selection
+- [x] Column sorting in FileList (by name, type, size, date)
+- [x] Column-based tag display in FileList (title, artist, album columns)
+- [x] Drag-and-drop files/folders into library
+- [x] Settings page
+  - Theme toggle (dark/light/system)
+  - File list view preference (list/table)
+  - Keyboard shortcuts reference
+- [x] Toast notifications for apply success/failure
+- [x] Empty state illustrations
+- [x] Loading skeletons
+
+---
+
+---
+
+## 🔲 Remaining Tasks
 
 ### Phase 5 — Distribution
 

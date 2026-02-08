@@ -48,4 +48,10 @@ export const IPC = {
   REMOVE_ALBUM_ART: "file:remove-album-art",
   SELECT_IMAGE_FILE: "dialog:select-image",
   READ_FILE_BASE64: "file:read-base64",
+
+  // Auto-update
+  UPDATE_STATUS: "update:status",
+  UPDATE_CHECK: "update:check",
+  UPDATE_DOWNLOAD: "update:download",
+  UPDATE_INSTALL: "update:install",
 } as const;

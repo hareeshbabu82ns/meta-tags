@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c4b5fd;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="220" ry="220" fill="url(#bg)" />
+  <!-- Tag icon body (price tag shape) -->
+  <g transform="translate(512, 512) rotate(-45) translate(-220, -220)">
+    <!-- Tag body -->
+    <path
+      d="M40 20 C40 8.95 48.95 0 60 0 L240 0 L420 180 C428.28 188.28 428.28 201.72 420 210 L210 420 C201.72 428.28 188.28 428.28 180 420 L0 240 L0 60 C0 48.95 8.95 40 20 40 Z"
+      fill="white" opacity="0.95" transform="translate(-10, -10) scale(1.05)" />
+    <!-- Tag hole -->
+    <circle cx="100" cy="100" r="45" fill="url(#bg)" opacity="0.7" />
+  </g>
+  <!-- Music note overlay -->
+  <g transform="translate(530, 560)">
+    <path
+      d="M-30 -100 L-30 40 C-30 65 -55 80 -75 75 C-95 70 -105 50 -95 30 C-85 10 -60 0 -30 10 L-30 -70 L80 -100 L80 10 C80 35 55 50 35 45 C15 40 5 20 15 0 C25 -20 50 -30 80 -20 L80 -100 Z"
+      fill="url(#accent)" opacity="0.9" />
+  </g>
+</svg>

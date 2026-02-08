@@ -137,6 +137,9 @@ async function readPdfMetadata(
   filePath: string,
 ): Promise<void> {
   try {
+    // pdf-parse may not be ESM compatible - use createRequire as fallback
+    const { createRequire } = await import("module");
+    const require = createRequire(import.meta.url);
     const pdfParse = require("pdf-parse");
     const buffer = fs.readFileSync(filePath);
     const data = await pdfParse(buffer, { max: 0 }); // Don't parse text, just metadata
@@ -159,13 +162,12 @@ async function readEpubMetadata(
   filePath: string,
 ): Promise<void> {
   try {
-    // Basic EPUB metadata extraction from OPF via simple XML parsing
-    // epub files are zip archives — read the OPF content
+    // jszip is ESM, use dynamic import
     const buffer = fs.readFileSync(filePath);
 
     // Parse EPUB as ZIP and find OPF
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const JSZip = require("jszip");
+    const jszipModule = await import("jszip");
+    const JSZip = jszipModule.default || jszipModule;
     const zip = await JSZip.loadAsync(buffer);
 
     // Find container.xml

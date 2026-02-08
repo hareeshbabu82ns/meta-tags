@@ -5,6 +5,7 @@ import type {
   PendingChange,
   TagRule,
   ScanProgress,
+  UpdateStatus,
 } from "./shared/types";
 
 const api: ElectronAPI = {
@@ -81,6 +82,17 @@ const api: ElectronAPI = {
   // Folder tree
   getFolderTree: (libraryId) =>
     ipcRenderer.invoke(IPC.GET_FOLDER_TREE, libraryId),
+
+  // Auto-update
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus) =>
+      callback(status);
+    ipcRenderer.on(IPC.UPDATE_STATUS, handler);
+    return () => ipcRenderer.removeListener(IPC.UPDATE_STATUS, handler);
+  },
+  checkForUpdate: () => ipcRenderer.invoke(IPC.UPDATE_CHECK),
+  downloadUpdate: () => ipcRenderer.invoke(IPC.UPDATE_DOWNLOAD),
+  installUpdate: () => ipcRenderer.invoke(IPC.UPDATE_INSTALL),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

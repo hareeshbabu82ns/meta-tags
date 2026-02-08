@@ -86,17 +86,42 @@
 - [x] Empty state illustrations
 - [x] Loading skeletons
 
+### Phase 5 — Distribution
+
+- [x] App icon and branding
+  - SVG source icon in `assets/icons/icon.svg`
+  - macOS `.icns` generated via `npm run generate-icons`
+  - Multi-resolution PNGs (16–1024px)
+  - `forge.config.ts` configured with icon, appBundleId, appCategoryType
+  - `package.json` updated with proper productName and description
+- [x] DMG maker for macOS
+  - `@electron-forge/maker-dmg` configured with background image
+  - Drag-to-Applications layout with window sizing
+  - Also configured `.deb` and `.rpm` makers for Linux
+- [x] Auto-update configuration
+  - `electron-updater` integrated via `src/main/services/auto-updater.ts`
+  - IPC channels for update status, check, download, install
+  - Preload bridge with `onUpdateStatus` event listener
+  - Auto-checks for updates 5s after launch (production only)
+- [x] Performance optimization (virtual scrolling for large libraries)
+  - `@tanstack/react-virtual` integrated into FileList
+  - Both list and table views use virtualized rendering
+  - 20-item overscan for smooth scrolling
+  - Handles 10,000+ files without performance degradation
+- [x] Integration tests for IPC handlers
+  - Vitest configured with `vitest.config.ts`
+  - 44 tests across 3 test suites (unit + integration)
+  - In-memory SQLite for isolated DB query tests
+  - Rule engine integration tests with regex matching
+  - Shared types utility tests
+  - Auto rebuild of `better-sqlite3` for system Node / Electron
+- [x] E2E tests with Playwright
+  - Playwright configured for Electron via `playwright.config.ts`
+  - App launch, sidebar rendering, settings dialog, keyboard shortcut tests
+  - Test helper for launching/closing the Electron app
+
 ---
 
 ---
 
 ## 🔲 Remaining Tasks
-
-### Phase 5 — Distribution
-
-- [ ] App icon and branding
-- [ ] DMG maker for macOS
-- [ ] Auto-update configuration
-- [ ] Performance optimization (virtual scrolling for large libraries)
-- [ ] Integration tests for IPC handlers
-- [ ] E2E tests with Playwright

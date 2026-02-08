@@ -1,22 +1,75 @@
-import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
-import { MakerZIP } from '@electron-forge/maker-zip';
-import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
-import { VitePlugin } from '@electron-forge/plugin-vite';
-import { FusesPlugin } from '@electron-forge/plugin-fuses';
-import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import type { ForgeConfig } from "@electron-forge/shared-types";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
+import { MakerZIP } from "@electron-forge/maker-zip";
+import { MakerDMG } from "@electron-forge/maker-dmg";
+import { MakerDeb } from "@electron-forge/maker-deb";
+import { MakerRpm } from "@electron-forge/maker-rpm";
+import { VitePlugin } from "@electron-forge/plugin-vite";
+import { FusesPlugin } from "@electron-forge/plugin-fuses";
+import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import path from "node:path";
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: false,
+    name: "Meta Tags",
+    executableName: "meta-tags",
+    icon: path.resolve(__dirname, "assets/icons/icon"),
+    appBundleId: "com.hareeshpolla.meta-tags",
+    appCategoryType: "public.app-category.music",
+    ignore: [
+      /^\/src/,
+      /^\/docs/,
+      /^\/scripts/,
+      /^\/tests/,
+      /\.ts$/,
+      /\.tsx$/,
+      /tsconfig/,
+      /vite\./,
+      /vitest\./,
+      /forge\.config/,
+      /playwright\./,
+    ],
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
-    new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerSquirrel({
+      name: "MetaTags",
+      iconUrl:
+        "https://raw.githubusercontent.com/hareeshbabu82ns/meta-tags/main/assets/icons/icon.ico",
+      setupIcon: path.resolve(__dirname, "assets/icons/icon.ico"),
+    }),
+    new MakerZIP({}, ["darwin"]),
+    new MakerDMG({
+      name: "Meta Tags",
+      icon: path.resolve(__dirname, "assets/icons/icon.icns"),
+      format: "ULFO",
+      overwrite: true,
+      background: path.resolve(__dirname, "assets/dmg-background.png"),
+      contents: [
+        { x: 180, y: 170, type: "file", path: "" }, // app placeholder — Forge fills this
+        { x: 480, y: 170, type: "link", path: "/Applications" },
+      ],
+      additionalDMGOptions: {
+        window: {
+          size: { width: 660, height: 400 },
+        },
+      },
+    }),
+    new MakerRpm({
+      options: {
+        icon: path.resolve(__dirname, "assets/icons/icon_256.png"),
+        categories: ["Audio", "AudioVideo"],
+      },
+    }),
+    new MakerDeb({
+      options: {
+        icon: path.resolve(__dirname, "assets/icons/icon_256.png"),
+        categories: ["Audio", "AudioVideo"],
+        maintainer: "Hareesh Polla",
+        homepage: "https://github.com/hareeshbabu82ns/meta-tags",
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({
@@ -25,20 +78,20 @@ const config: ForgeConfig = {
       build: [
         {
           // `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
-          entry: 'src/main.ts',
-          config: 'vite.main.config.ts',
-          target: 'main',
+          entry: "src/main.ts",
+          config: "vite.main.config.ts",
+          target: "main",
         },
         {
-          entry: 'src/preload.ts',
-          config: 'vite.preload.config.ts',
-          target: 'preload',
+          entry: "src/preload.ts",
+          config: "vite.preload.config.ts",
+          target: "preload",
         },
       ],
       renderer: [
         {
-          name: 'main_window',
-          config: 'vite.renderer.config.ts',
+          name: "main_window",
+          config: "vite.renderer.config.ts",
         },
       ],
     }),
@@ -51,7 +104,7 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };

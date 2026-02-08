@@ -199,6 +199,19 @@ export interface AlbumArtResult {
   format: string; // MIME type e.g. 'image/jpeg'
 }
 
+export interface UpdateStatus {
+  status:
+    | "checking"
+    | "available"
+    | "not-available"
+    | "downloading"
+    | "downloaded"
+    | "error";
+  message: string;
+  version?: string;
+  percent?: number;
+}
+
 // IPC API exposed to renderer via contextBridge
 export interface ElectronAPI {
   // Libraries
@@ -258,6 +271,12 @@ export interface ElectronAPI {
 
   // Folder tree
   getFolderTree(libraryId: number): Promise<FolderNode[]>;
+
+  // Auto-update
+  onUpdateStatus(callback: (status: UpdateStatus) => void): () => void;
+  checkForUpdate(): Promise<void>;
+  downloadUpdate(): Promise<void>;
+  installUpdate(): Promise<void>;
 }
 
 export interface FolderNode {

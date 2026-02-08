@@ -10,6 +10,11 @@ import * as queries from "../db/queries";
 import { scanLibrary } from "../services/scanner";
 import { writeTagToFile, deleteTagFromFile } from "../services/tag-writer";
 import { previewTagRule } from "../services/rule-engine";
+import {
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+} from "../services/auto-updater";
 import { v4 as uuidv4 } from "uuid";
 
 // In-memory pending changes queue
@@ -354,4 +359,18 @@ export function registerIpcHandlers(): void {
       }
     },
   );
+
+  // ─── Auto-Update ───────────────────────────────────────────────────
+
+  ipcMain.handle(IPC.UPDATE_CHECK, () => {
+    checkForUpdates();
+  });
+
+  ipcMain.handle(IPC.UPDATE_DOWNLOAD, () => {
+    downloadUpdate();
+  });
+
+  ipcMain.handle(IPC.UPDATE_INSTALL, () => {
+    installUpdate();
+  });
 }

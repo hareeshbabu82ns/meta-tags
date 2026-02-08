@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import started from "electron-squirrel-startup";
 import { registerIpcHandlers } from "./main/ipc/handlers";
 import { closeDb } from "./main/db/database";
+import { initAutoUpdater } from "./main/services/auto-updater";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -70,6 +71,12 @@ app.on("ready", () => {
   registerIpcHandlers();
 
   createWindow();
+
+  // Start auto-updater after window is created
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) {
+    initAutoUpdater(win);
+  }
 });
 
 // Quit when all windows are closed, except on macOS

@@ -1,4 +1,5 @@
 import React from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Music,
   FileText,
@@ -20,7 +21,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -267,83 +267,171 @@ export function FileList() {
         </div>
       )}
 
-      {/* File list */}
-      <ScrollArea className="flex-1">
+      {/* File list (virtualized) */}
+      <div className="flex-1 overflow-hidden">
         {loading ? (
           <FileListSkeleton view={fileListView} />
         ) : files.length === 0 ? (
           <EmptyFileList hasSearch={!!searchQuery} />
-        ) : fileListView === "table" ? (
-          <div className="divide-y divide-border">
-            {files.map((file) => (
-              <FileTableRow
-                key={file.id}
-                file={file}
-                selected={selectedFileIds.has(file.id)}
-                tags={fileTags[file.id] ?? {}}
-                onSelect={(multi) => {
-                  if (multi) toggleSelection(file.id);
-                  else handleSelectFile(file, false);
-                }}
-                onDoubleClick={() => handleDoubleClick(file)}
-                onCopyTags={() => handleCopyTags(file.id)}
-                onPasteTags={() =>
-                  handlePasteTags(
-                    selectedFileIds.size > 0
-                      ? Array.from(selectedFileIds)
-                      : [file.id],
-                  )
-                }
-                onPlay={
-                  getFileCategory(file.type) === "audio"
-                    ? () => play(file)
-                    : undefined
-                }
-                onOpenViewer={
-                  getFileCategory(file.type) === "document"
-                    ? () => openViewer(file)
-                    : undefined
-                }
-                hasCopiedTags={hasCopiedTags}
-              />
-            ))}
-          </div>
         ) : (
-          <div className="divide-y divide-border">
-            {files.map((file) => (
-              <FileListRow
+          <VirtualizedFileList
+            files={files}
+            selectedFileIds={selectedFileIds}
+            fileTags={fileTags}
+            fileListView={fileListView}
+            hasCopiedTags={hasCopiedTags}
+            onSelect={handleSelectFile}
+            onToggle={toggleSelection}
+            onDoubleClick={handleDoubleClick}
+            onCopyTags={handleCopyTags}
+            onPasteTags={handlePasteTags}
+            onPlay={play}
+            onOpenViewer={openViewer}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Virtualized File List ──────────────────────────────────────────────
+
+const TABLE_ROW_HEIGHT = 32;
+const LIST_ROW_HEIGHT = 44;
+
+function VirtualizedFileList({
+  files,
+  selectedFileIds,
+  fileTags,
+  fileListView,
+  hasCopiedTags,
+  onSelect,
+  onToggle,
+  onDoubleClick,
+  onCopyTags,
+  onPasteTags,
+  onPlay,
+  onOpenViewer,
+}: {
+  files: FileRecord[];
+  selectedFileIds: Set<number>;
+  fileTags: Record<number, Record<string, string>>;
+  fileListView: "list" | "table";
+  hasCopiedTags: boolean;
+  onSelect: (file: FileRecord, multi: boolean) => void;
+  onToggle: (id: number) => void;
+  onDoubleClick: (file: FileRecord) => void;
+  onCopyTags: (fileId: number) => Promise<void>;
+  onPasteTags: (fileIds: number[]) => Promise<void>;
+  onPlay: (file: FileRecord) => void;
+  onOpenViewer: (file: FileRecord) => void;
+}) {
+  const parentRef = React.useRef<HTMLDivElement>(null);
+
+  const rowHeight =
+    fileListView === "table" ? TABLE_ROW_HEIGHT : LIST_ROW_HEIGHT;
+
+  const virtualizer = useVirtualizer({
+    count: files.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 20,
+  });
+
+  return (
+    <div ref={parentRef} className="h-full overflow-auto">
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const file = files[virtualRow.index];
+          const selected = selectedFileIds.has(file.id);
+          const category = getFileCategory(file.type);
+
+          if (fileListView === "table") {
+            return (
+              <div
                 key={file.id}
-                file={file}
-                selected={selectedFileIds.has(file.id)}
-                onSelect={(multi) => {
-                  if (multi) toggleSelection(file.id);
-                  else handleSelectFile(file, false);
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
                 }}
-                onDoubleClick={() => handleDoubleClick(file)}
-                onCopyTags={() => handleCopyTags(file.id)}
+              >
+                <FileTableRow
+                  file={file}
+                  selected={selected}
+                  tags={fileTags[file.id] ?? {}}
+                  onSelect={(multi) => {
+                    if (multi) onToggle(file.id);
+                    else onSelect(file, false);
+                  }}
+                  onDoubleClick={() => onDoubleClick(file)}
+                  onCopyTags={() => onCopyTags(file.id)}
+                  onPasteTags={() =>
+                    onPasteTags(
+                      selectedFileIds.size > 0
+                        ? Array.from(selectedFileIds)
+                        : [file.id],
+                    )
+                  }
+                  onPlay={category === "audio" ? () => onPlay(file) : undefined}
+                  onOpenViewer={
+                    category === "document"
+                      ? () => onOpenViewer(file)
+                      : undefined
+                  }
+                  hasCopiedTags={hasCopiedTags}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={file.id}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <FileListRow
+                file={file}
+                selected={selected}
+                onSelect={(multi) => {
+                  if (multi) onToggle(file.id);
+                  else onSelect(file, false);
+                }}
+                onDoubleClick={() => onDoubleClick(file)}
+                onCopyTags={() => onCopyTags(file.id)}
                 onPasteTags={() =>
-                  handlePasteTags(
+                  onPasteTags(
                     selectedFileIds.size > 0
                       ? Array.from(selectedFileIds)
                       : [file.id],
                   )
                 }
-                onPlay={
-                  getFileCategory(file.type) === "audio"
-                    ? () => play(file)
-                    : undefined
-                }
+                onPlay={category === "audio" ? () => onPlay(file) : undefined}
                 onOpenViewer={
-                  getFileCategory(file.type) === "document"
-                    ? () => openViewer(file)
-                    : undefined
+                  category === "document" ? () => onOpenViewer(file) : undefined
                 }
                 hasCopiedTags={hasCopiedTags}
               />
-            ))}
-          </div>
-        )}
-      </ScrollArea>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

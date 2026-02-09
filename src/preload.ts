@@ -6,6 +6,7 @@ import type {
   TagRule,
   ScanProgress,
   UpdateStatus,
+  ApplyProgress,
 } from "./shared/types";
 
 const api: ElectronAPI = {
@@ -49,10 +50,30 @@ const api: ElectronAPI = {
     ipcRenderer.invoke(IPC.QUEUE_BULK_TAG_CHANGES, changes),
   getPendingChanges: () => ipcRenderer.invoke(IPC.GET_PENDING_CHANGES),
   applyPendingChanges: (ids) =>
-    ipcRenderer.invoke(IPC.APPLY_PENDING_CHANGES, ids),
+    ipcRenderer.send(IPC.APPLY_PENDING_CHANGES, ids),
   rejectPendingChanges: (ids) =>
     ipcRenderer.invoke(IPC.REJECT_PENDING_CHANGES, ids),
   clearPendingChanges: () => ipcRenderer.invoke(IPC.CLEAR_PENDING_CHANGES),
+  onApplyProgress: (callback) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      progress: ApplyProgress,
+    ) => callback(progress);
+    ipcRenderer.on(IPC.APPLY_PROGRESS, handler);
+    return () => ipcRenderer.removeListener(IPC.APPLY_PROGRESS, handler);
+  },
+  onApplyComplete: (callback) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      result: {
+        success: string[];
+        failed: { id: string; error: string }[];
+      },
+    ) => callback(result);
+    ipcRenderer.on(IPC.APPLY_CHANGES_COMPLETE, handler);
+    return () =>
+      ipcRenderer.removeListener(IPC.APPLY_CHANGES_COMPLETE, handler);
+  },
 
   // Tag History
   getTagHistory: (fileId) => ipcRenderer.invoke(IPC.GET_TAG_HISTORY, fileId),

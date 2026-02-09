@@ -41,6 +41,7 @@ import {
   usePlayerStore,
   useViewerStore,
   useSettingsStore,
+  usePendingChangesStore,
 } from "../stores";
 import type { SortField } from "../stores";
 import type { FileRecord } from "../../shared/types";
@@ -109,6 +110,7 @@ export function FileList() {
 
   const handlePasteTags = async (fileIds: number[]) => {
     if (!hasCopiedTags) return;
+    if (usePendingChangesStore.getState().applying) return;
     const changes = [];
     for (const fileId of fileIds) {
       const existingTags = await window.electronAPI.getFileTags(fileId);

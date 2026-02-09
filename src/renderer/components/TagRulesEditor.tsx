@@ -1,5 +1,15 @@
 import React, { useState, useMemo } from "react";
-import { Plus, Trash2, Edit2, HelpCircle, Zap } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  HelpCircle,
+  Zap,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +36,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { TagRule } from "../../shared/types";
-import { useFileStore } from "../stores";
+import { useFileStore, usePendingChangesStore } from "../stores";
 
 // Regex help information
 const REGEX_HELP = {
@@ -95,6 +105,8 @@ export function TagRulesEditor() {
   const [editingRule, setEditingRule] = useState<TagRule | null>(null);
   const [showRegexHelp, setShowRegexHelp] = useState(false);
   const [applyingRule, setApplyingRule] = useState(false);
+  const [expandedRuleId, setExpandedRuleId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -113,6 +125,18 @@ export function TagRulesEditor() {
         .filter(Boolean),
     [selectedFileIds, files],
   );
+
+  const filteredRules = useMemo(() => {
+    if (!searchQuery.trim()) return rules;
+    const q = searchQuery.toLowerCase();
+    return rules.filter(
+      (rule) =>
+        rule.name.toLowerCase().includes(q) ||
+        rule.source_field.toLowerCase().includes(q) ||
+        rule.target_field.toLowerCase().includes(q) ||
+        rule.regex.toLowerCase().includes(q),
+    );
+  }, [rules, searchQuery]);
 
   // Load rules on mount
   React.useEffect(() => {
@@ -244,6 +268,11 @@ export function TagRulesEditor() {
 
     try {
       setApplyingRule(true);
+      if (usePendingChangesStore.getState().applying) {
+        alert("Wait for pending changes to finish applying");
+        setApplyingRule(false);
+        return;
+      }
       const fileIds = Array.from(selectedFileIds);
       const changes = await window.electronAPI.previewTagRule(rule.id, fileIds);
 
@@ -317,9 +346,9 @@ export function TagRulesEditor() {
   };
 
   return (
-    <div className="flex flex-col h-full gap-3">
+    <div className="flex flex-col h-full min-h-0 gap-3">
       {/* Header */}
-      <div className="px-3 pt-3">
+      <div className="px-3 shrink-0">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Tag Rules</h2>
@@ -351,92 +380,247 @@ export function TagRulesEditor() {
               Import
             </Button>
           </div>
+          {rules.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Input
+                placeholder="Search rules by name, field, or pattern…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-7 text-xs pl-7 pr-7"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Rules List */}
-      <ScrollArea className="flex-1 px-3">
-        <div className="space-y-2 pr-4">
+      <ScrollArea className="flex-1 min-h-0 px-3">
+        <div className="space-y-2 pr-4 pb-3">
           {rules.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-xs">
               No rules yet. Create one to get started.
             </div>
+          ) : filteredRules.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-xs">
+              No rules match "{searchQuery}"
+            </div>
           ) : (
-            rules.map((rule) => (
-              <div
-                key={rule.id}
-                className="p-2 border border-border rounded-md bg-card hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-medium truncate">
-                        {rule.name}
-                      </p>
-                      {rule.is_preset && (
-                        <Badge variant="secondary" className="text-xs py-0 h-5">
-                          Preset
-                        </Badge>
-                      )}
+            filteredRules.map((rule) => {
+              const isExpanded = expandedRuleId === rule.id;
+              const canShowPreview = selectedFiles.length > 0;
+
+              return (
+                <div
+                  key={rule.id}
+                  className="border border-border rounded-md bg-card overflow-hidden"
+                >
+                  <div className="p-2 hover:bg-accent/50 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        className="flex-1 text-left"
+                        onClick={() =>
+                          setExpandedRuleId(isExpanded ? null : rule.id)
+                        }
+                        disabled={!canShowPreview}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="mt-0.5 shrink-0">
+                            {canShowPreview ? (
+                              isExpanded ? (
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                              )
+                            ) : (
+                              <div className="w-3" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-medium truncate">
+                                {rule.name}
+                              </p>
+                              {rule.is_preset && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs py-0 h-5"
+                                >
+                                  Preset
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {rule.source_field} → {rule.target_field}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono break-all">
+                              /{rule.regex}/
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="flex gap-1 shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleApplyRule(rule)}
+                              disabled={
+                                selectedFileIds.size === 0 || applyingRule
+                              }
+                            >
+                              <Zap className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {selectedFileIds.size === 0
+                              ? "Select files to apply"
+                              : "Apply rule to selected files"}
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleOpenDialog(rule)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit rule</TooltipContent>
+                        </Tooltip>
+                        {!rule.is_preset && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleDeleteRule(rule.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete rule</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {rule.source_field} → {rule.target_field}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono break-all">
-                      /{rule.regex}/
-                    </p>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleApplyRule(rule)}
-                          disabled={selectedFileIds.size === 0 || applyingRule}
-                        >
-                          <Zap className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {selectedFileIds.size === 0
-                          ? "Select files to apply"
-                          : "Apply rule to selected files"}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => handleOpenDialog(rule)}
-                        >
-                          <Edit2 className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Edit rule</TooltipContent>
-                    </Tooltip>
-                    {!rule.is_preset && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleDeleteRule(rule.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete rule</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
+
+                  {/* Example Results Preview */}
+                  {isExpanded && canShowPreview && (
+                    <div className="px-2 py-2 border-t border-border bg-muted/20">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          Example Results ({selectedFiles.length} file
+                          {selectedFiles.length !== 1 ? "s" : ""})
+                        </p>
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {selectedFiles.map((file, idx) => {
+                            if (!file) return null;
+
+                            let sourceValue: string | null = null;
+
+                            switch (rule.source_field) {
+                              case "filename":
+                                sourceValue = file.filename;
+                                break;
+                              case "folder":
+                                sourceValue = file.path.substring(
+                                  0,
+                                  file.path.lastIndexOf("/"),
+                                );
+                                break;
+                              case "index":
+                                sourceValue = String(idx + 1);
+                                break;
+                              case "datetime":
+                                sourceValue = file.modified_at;
+                                break;
+                            }
+
+                            if (!sourceValue) {
+                              return (
+                                <div
+                                  key={file.id}
+                                  className="text-xs p-1.5 bg-muted/50 rounded border border-border/50"
+                                >
+                                  <p className="text-muted-foreground truncate">
+                                    {file.filename}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground italic">
+                                    No source value
+                                  </p>
+                                </div>
+                              );
+                            }
+
+                            try {
+                              const regex = new RegExp(rule.regex);
+                              const match = sourceValue.match(regex);
+
+                              if (!match) {
+                                return (
+                                  <div
+                                    key={file.id}
+                                    className="text-xs p-1.5 bg-muted/50 rounded border border-border/50"
+                                  >
+                                    <p className="text-muted-foreground truncate">
+                                      {file.filename}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground italic">
+                                      No match
+                                    </p>
+                                  </div>
+                                );
+                              }
+
+                              let resultValue = rule.template;
+                              for (let i = 0; i <= match.length; i++) {
+                                resultValue = resultValue.replace(
+                                  new RegExp(`\\$${i}`, "g"),
+                                  match[i] || "",
+                                );
+                              }
+                              const trimmedValue = resultValue.trim();
+
+                              return (
+                                <div
+                                  key={file.id}
+                                  className="text-xs p-1.5 bg-green-50/50 dark:bg-green-950/20 rounded border border-green-200/50 dark:border-green-800/30"
+                                >
+                                  <p className="text-muted-foreground font-mono text-xs truncate">
+                                    {file.filename}
+                                  </p>
+                                  <p className="text-green-700 dark:text-green-400 font-semibold text-xs mt-0.5 break-all">
+                                    {trimmedValue || "(empty)"}
+                                  </p>
+                                </div>
+                              );
+                            } catch {
+                              return null;
+                            }
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </ScrollArea>

@@ -51,6 +51,10 @@ export function useKeyboardShortcuts() {
       // ── Cmd+V — Paste Tags ──
       if (isMod && e.key === "v" && !e.shiftKey && !isEditing) {
         e.preventDefault();
+        if (usePendingChangesStore.getState().applying) {
+          toast.info("Wait for pending changes to finish applying");
+          return;
+        }
         const { hasCopiedTags, copiedTags } = useClipboardStore.getState();
         if (!hasCopiedTags) {
           toast.info("No tags copied");
@@ -117,6 +121,10 @@ export function useKeyboardShortcuts() {
       // ── Cmd+S — Queue Changes (triggers save in TagInspector) ──
       if (isMod && e.key === "s" && !e.shiftKey) {
         e.preventDefault();
+        if (usePendingChangesStore.getState().applying) {
+          toast.info("Wait for pending changes to finish applying");
+          return;
+        }
         // Dispatch a custom event that TagInspector listens for
         window.dispatchEvent(new CustomEvent("meta-tags:save"));
         return;
@@ -125,6 +133,10 @@ export function useKeyboardShortcuts() {
       // ── Cmd+Shift+A — Apply All Pending Changes ──
       if (isMod && e.key === "A" && e.shiftKey) {
         e.preventDefault();
+        if (usePendingChangesStore.getState().applying) {
+          toast.info("Already applying changes");
+          return;
+        }
         try {
           const changes = await window.electronAPI.getPendingChanges();
           if (changes.length === 0) {
@@ -132,15 +144,13 @@ export function useKeyboardShortcuts() {
             return;
           }
           const ids = changes.map((c) => c.id);
-          const result = await window.electronAPI.applyPendingChanges(ids);
-          if (result.failed.length > 0) {
-            toast.warning(
-              `Applied ${result.success.length}, failed ${result.failed.length}`,
-            );
-          } else {
-            toast.success(`Applied ${result.success.length} changes`);
-          }
-          // Open panel to show result
+          usePendingChangesStore.setState({
+            applying: true,
+            applyProgress: { applied: 0, total: ids.length, currentFile: "" },
+          });
+          // Fire-and-forget — completion handled by onApplyComplete in App.tsx
+          window.electronAPI.applyPendingChanges(ids);
+          // Open panel to show progress
           if (!usePendingChangesStore.getState().showPanel) {
             usePendingChangesStore.getState().togglePanel();
           }

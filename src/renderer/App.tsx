@@ -17,6 +17,7 @@ import {
   useLibraryStore,
   useFileStore,
   useScanStore,
+  usePendingChangesStore,
   useSettingsStore,
 } from "./stores";
 
@@ -58,9 +59,27 @@ export default function App() {
       await useFileStore.getState().loadFiles();
     });
 
+    // Listen for apply-progress events
+    const unsubApplyProgress = window.electronAPI.onApplyProgress(
+      (progress) => {
+        usePendingChangesStore.setState({ applyProgress: progress });
+      },
+    );
+
+    // Listen for apply-complete events
+    const unsubApplyComplete = window.electronAPI.onApplyComplete((result) => {
+      usePendingChangesStore.setState({ applying: false, applyProgress: null });
+      // Dispatch a custom event so components can react
+      window.dispatchEvent(
+        new CustomEvent("meta-tags:apply-complete", { detail: result }),
+      );
+    });
+
     return () => {
       unsubProgress();
       unsubComplete();
+      unsubApplyProgress();
+      unsubApplyComplete();
     };
   }, []);
 

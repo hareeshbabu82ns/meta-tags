@@ -6,6 +6,7 @@ import type {
   Tag,
   FolderNode,
   ScanProgress,
+  ApplyProgress,
 } from "../../shared/types";
 
 interface LibraryState {
@@ -263,11 +264,15 @@ export const useScanStore = create<ScanState>(() => ({
 
 interface PendingChangesState {
   showPanel: boolean;
+  applying: boolean;
+  applyProgress: ApplyProgress | null;
   togglePanel: () => void;
 }
 
 export const usePendingChangesStore = create<PendingChangesState>((set) => ({
   showPanel: false,
+  applying: false,
+  applyProgress: null,
   togglePanel: () => set((s) => ({ showPanel: !s.showPanel })),
 }));
 

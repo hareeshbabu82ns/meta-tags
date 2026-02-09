@@ -115,34 +115,54 @@ export function registerIpcHandlers(): void {
     return pendingChanges.filter((c) => c.status === "pending");
   });
 
-  ipcMain.handle(IPC.APPLY_PENDING_CHANGES, async (_e, ids: string[]) => {
-    const success: string[] = [];
-    const failed: { id: string; error: string }[] = [];
+  ipcMain.on(IPC.APPLY_PENDING_CHANGES, (event, ids: string[]) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
 
-    for (const id of ids) {
-      const change = pendingChanges.find((c) => c.id === id);
-      if (!change) {
-        failed.push({ id, error: "Change not found" });
-        continue;
-      }
+    const applyNext = async () => {
+      const success: string[] = [];
+      const failed: { id: string; error: string }[] = [];
+      const total = ids.length;
 
-      try {
-        if (change.new_value === null) {
-          await deleteTagFromFile(change.file_id, change.key);
-        } else {
-          await writeTagToFile(change.file_id, change.key, change.new_value);
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const change = pendingChanges.find((c) => c.id === id);
+        if (!change) {
+          failed.push({ id, error: "Change not found" });
+          continue;
         }
-        change.status = "applied";
-        success.push(id);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        failed.push({ id, error: msg });
-      }
-    }
 
-    // Clean up applied changes
-    pendingChanges = pendingChanges.filter((c) => c.status === "pending");
-    return { success, failed };
+        // Send progress to renderer
+        event.sender.send(IPC.APPLY_PROGRESS, {
+          applied: i,
+          total,
+          currentFile: change.filename,
+        });
+
+        // Yield to the event loop so IPC messages flush to the renderer
+        await new Promise((resolve) => setImmediate(resolve));
+
+        try {
+          if (change.new_value === null) {
+            await deleteTagFromFile(change.file_id, change.key);
+          } else {
+            await writeTagToFile(change.file_id, change.key, change.new_value);
+          }
+          change.status = "applied";
+          success.push(id);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          failed.push({ id, error: msg });
+        }
+      }
+
+      // Clean up applied changes
+      pendingChanges = pendingChanges.filter((c) => c.status === "pending");
+
+      // Send completion event to renderer
+      event.sender.send(IPC.APPLY_CHANGES_COMPLETE, { success, failed });
+    };
+
+    applyNext();
   });
 
   ipcMain.handle(IPC.REJECT_PENDING_CHANGES, (_e, ids: string[]) => {

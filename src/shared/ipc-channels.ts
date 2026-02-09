@@ -25,6 +25,8 @@ export const IPC = {
   QUEUE_BULK_TAG_CHANGES: "changes:queue-bulk",
   GET_PENDING_CHANGES: "changes:get-pending",
   APPLY_PENDING_CHANGES: "changes:apply",
+  APPLY_PROGRESS: "changes:apply-progress",
+  APPLY_CHANGES_COMPLETE: "changes:apply-complete",
   REJECT_PENDING_CHANGES: "changes:reject",
   CLEAR_PENDING_CHANGES: "changes:clear",
 

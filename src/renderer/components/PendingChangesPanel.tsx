@@ -7,21 +7,24 @@ import {
   Trash2,
   ArrowRight,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { usePendingChangesStore } from "../stores";
 import type { PendingChange } from "../../shared/types";
 
 export function PendingChangesPanel() {
   const showPanel = usePendingChangesStore((s) => s.showPanel);
   const togglePanel = usePendingChangesStore((s) => s.togglePanel);
+  const applying = usePendingChangesStore((s) => s.applying);
+  const applyProgress = usePendingChangesStore((s) => s.applyProgress);
   const [changes, setChanges] = useState<PendingChange[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [applying, setApplying] = useState(false);
 
   const loadChanges = async () => {
     const c = await window.electronAPI.getPendingChanges();
@@ -35,6 +38,7 @@ export function PendingChangesPanel() {
   }, []);
 
   const toggleSelect = (id: string) => {
+    if (applying) return;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -44,32 +48,45 @@ export function PendingChangesPanel() {
   };
 
   const selectAll = () => {
+    if (applying) return;
     setSelectedIds(new Set(changes.map((c) => c.id)));
   };
 
-  const handleApply = async () => {
+  const handleApply = () => {
     const ids =
       selectedIds.size > 0 ? Array.from(selectedIds) : changes.map((c) => c.id);
-    setApplying(true);
-    try {
-      const result = await window.electronAPI.applyPendingChanges(ids);
-      if (result.failed.length > 0) {
-        toast.warning(
-          `Applied ${result.success.length} changes, ${result.failed.length} failed`,
-        );
-      } else {
-        toast.success(`Applied ${result.success.length} changes successfully`);
-      }
-      await loadChanges();
-      setSelectedIds(new Set());
-    } catch {
-      toast.error("Failed to apply changes");
-    } finally {
-      setApplying(false);
-    }
+    usePendingChangesStore.setState({
+      applying: true,
+      applyProgress: { applied: 0, total: ids.length, currentFile: "" },
+    });
+    // Fire-and-forget — completion handled by onApplyComplete in App.tsx
+    window.electronAPI.applyPendingChanges(ids);
   };
 
+  // Listen for apply completion to update local state
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { success, failed } = (e as CustomEvent).detail as {
+        success: string[];
+        failed: { id: string; error: string }[];
+      };
+      if (failed.length > 0) {
+        toast.warning(
+          `Applied ${success.length} changes, ${failed.length} failed`,
+        );
+      } else {
+        toast.success(`Applied ${success.length} changes successfully`);
+      }
+      loadChanges();
+      setSelectedIds(new Set());
+    };
+    window.addEventListener("meta-tags:apply-complete", handler);
+    return () =>
+      window.removeEventListener("meta-tags:apply-complete", handler);
+  }, []);
+
   const handleReject = async () => {
+    if (applying) return;
     const ids =
       selectedIds.size > 0 ? Array.from(selectedIds) : changes.map((c) => c.id);
     await window.electronAPI.rejectPendingChanges(ids);
@@ -79,11 +96,18 @@ export function PendingChangesPanel() {
   };
 
   const handleClear = async () => {
+    if (applying) return;
     await window.electronAPI.clearPendingChanges();
     setChanges([]);
     setSelectedIds(new Set());
     toast.info("Cleared all pending changes");
   };
+
+  const progressPercent = applyProgress
+    ? Math.round(
+        (applyProgress.applied / Math.max(applyProgress.total, 1)) * 100,
+      )
+    : 0;
 
   return (
     <div className="border-t border-border">
@@ -99,6 +123,9 @@ export function PendingChangesPanel() {
               {changes.length}
             </Badge>
           )}
+          {applying && (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          )}
         </div>
         {showPanel ? (
           <ChevronDown className="h-4 w-4" />
@@ -108,7 +135,26 @@ export function PendingChangesPanel() {
       </button>
 
       {showPanel && (
-        <div className="border-t border-border">
+        <div className="border-t border-border relative">
+          {/* Progress overlay when applying */}
+          {applying && applyProgress && (
+            <div className="px-4 py-2 border-b border-border bg-muted/30">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+                <span className="text-xs font-medium">
+                  Applying changes… {applyProgress.applied}/
+                  {applyProgress.total}
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-1.5" />
+              {applyProgress.currentFile && (
+                <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                  {applyProgress.currentFile}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="px-4 py-2 flex gap-2 border-b border-border">
             <Button
@@ -117,14 +163,20 @@ export function PendingChangesPanel() {
               disabled={changes.length === 0 || applying}
               className="gap-1"
             >
-              <Check className="h-3 w-3" />
-              Apply {selectedIds.size > 0 ? `(${selectedIds.size})` : "All"}
+              {applying ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Check className="h-3 w-3" />
+              )}
+              {applying
+                ? "Applying…"
+                : `Apply ${selectedIds.size > 0 ? `(${selectedIds.size})` : "All"}`}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleReject}
-              disabled={changes.length === 0}
+              disabled={changes.length === 0 || applying}
               className="gap-1"
             >
               <X className="h-3 w-3" />
@@ -134,7 +186,7 @@ export function PendingChangesPanel() {
               variant="outline"
               size="sm"
               onClick={selectAll}
-              disabled={changes.length === 0}
+              disabled={changes.length === 0 || applying}
             >
               Select All
             </Button>
@@ -143,7 +195,7 @@ export function PendingChangesPanel() {
               variant="ghost"
               size="sm"
               onClick={handleClear}
-              disabled={changes.length === 0}
+              disabled={changes.length === 0 || applying}
               className="text-destructive gap-1"
             >
               <Trash2 className="h-3 w-3" />
@@ -162,7 +214,9 @@ export function PendingChangesPanel() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div
+                className={`divide-y divide-border ${applying ? "opacity-50 pointer-events-none" : ""}`}
+              >
                 {changes.map((change) => (
                   <div
                     key={change.id}
@@ -173,6 +227,7 @@ export function PendingChangesPanel() {
                     <Checkbox
                       checked={selectedIds.has(change.id)}
                       onCheckedChange={() => toggleSelect(change.id)}
+                      disabled={applying}
                     />
                     <span className="truncate w-32 text-muted-foreground">
                       {change.filename}

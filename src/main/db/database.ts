@@ -92,48 +92,178 @@ function runMigrations(db: Database.Database): void {
     );
   `);
 
-  // Seed default presets if none exist
-  const presetCount = db
-    .prepare("SELECT COUNT(*) as cnt FROM tag_rules WHERE is_preset = 1")
-    .get() as { cnt: number };
-  if (presetCount.cnt === 0) {
-    const insert = db.prepare(
-      "INSERT INTO tag_rules (name, source_field, regex, target_field, template, is_preset) VALUES (?, ?, ?, ?, ?, 1)",
-    );
-    insert.run(
+  // Seed default presets (inserts any preset not already present by name)
+  const presets: [string, string, string, string, string][] = [
+    // ── Basic filename parsing ──────────────────────────────────────────
+    [
       "Track number from filename",
       "filename",
       "^(\\d+)[\\s\\-_.]",
       "track",
       "$1",
-    );
-    insert.run(
-      "Date from filename",
+    ],
+    [
+      "Track from filename (strip leading zeros)",
+      "filename",
+      "^0*(\\d+)\\s",
+      "track",
+      "$1",
+    ],
+    [
+      "Date from filename (YYYY-MM-DD)",
       "filename",
       "(\\d{4}-\\d{2}-\\d{2})",
       "year",
       "$1",
-    );
-    insert.run(
+    ],
+    [
+      "Title from filename (strip extension)",
+      "filename",
+      "^(.+)\\.[^.]+$",
+      "title",
+      "$1",
+    ],
+
+    // ── Artist - Title pattern ──────────────────────────────────────────
+    [
       "Artist - Title from filename",
       "filename",
       "^(.+?)\\s*-\\s*(.+?)\\.[^.]+$",
       "title",
       "$2",
-    );
-    insert.run(
+    ],
+    [
       "Artist from filename (Artist - Title)",
       "filename",
       "^(.+?)\\s*-\\s*(.+?)\\.[^.]+$",
       "artist",
       "$1",
-    );
-    insert.run(
+    ],
+
+    // ── ## - Title pattern (e.g. "01 - My Song.mp3") ────────────────────
+    [
+      "Title from ## - Title filename",
+      "filename",
+      "^\\d{1,3}\\s*[-._]\\s*(.+?)\\.[^.]+$",
+      "title",
+      "$1",
+    ],
+
+    // ── ## - Artist - Title pattern (e.g. "01 - Pink Floyd - Time.mp3") ─
+    [
+      "Artist from ## - Artist - Title filename",
+      "filename",
+      "^\\d{1,3}\\s*[-._]\\s*(.+?)\\s+-\\s+.+?\\.[^.]+$",
+      "artist",
+      "$1",
+    ],
+    [
+      "Title from ## - Artist - Title filename",
+      "filename",
+      "^\\d{1,3}\\s*[-._]\\s*.+?\\s+-\\s+(.+?)\\.[^.]+$",
+      "title",
+      "$1",
+    ],
+
+    // ── Year extraction ─────────────────────────────────────────────────
+    [
+      "Year from brackets in filename (19xx/20xx)",
+      "filename",
+      "[\\(\\[]((?:19|20)\\d{2})[\\)\\]]",
+      "year",
+      "$1",
+    ],
+    [
+      "Year from brackets in folder name",
+      "folder",
+      "[\\(\\[]((?:19|20)\\d{2})[\\)\\]]",
+      "year",
+      "$1",
+    ],
+    [
+      "Year from 4-digit number in folder",
+      "folder",
+      "((?:19|20)\\d{2})",
+      "year",
+      "$1",
+    ],
+
+    // ── Disc number (CD1, Disc 2, Disk3) ────────────────────────────────
+    [
+      "Disc number from filename",
+      "filename",
+      "(?:[Dd](?:isc|isk)|[Cc][Dd])\\s*(\\d+)",
+      "disc",
+      "$1",
+    ],
+
+    // ── Folder-based metadata ───────────────────────────────────────────
+    [
       "Album from parent folder",
       "folder",
       "([^/\\\\]+)[/\\\\]?$",
       "album",
       "$1",
-    );
+    ],
+    [
+      "Album from folder (strip bracketed year)",
+      "folder",
+      "[/\\\\]([^/\\\\]+?)\\s*[\\(\\[](?:19|20)\\d{2}[\\)\\]]\\s*$",
+      "album",
+      "$1",
+    ],
+    [
+      "Album artist from grandparent folder",
+      "folder",
+      "([^/\\\\]+)[/\\\\][^/\\\\]+$",
+      "album_artist",
+      "$1",
+    ],
+    [
+      "Genre from folder structure (Genre/Artist/Album)",
+      "folder",
+      "([^/\\\\]+)[/\\\\][^/\\\\]+[/\\\\][^/\\\\]+$",
+      "genre",
+      "$1",
+    ],
+
+    // ── Annotations & comments ──────────────────────────────────────────
+    [
+      "Comment from [bracketed] text in filename",
+      "filename",
+      "\\[([^\\]]+)\\]",
+      "comment",
+      "$1",
+    ],
+
+    // ── Document-specific (PDF, EPUB) ───────────────────────────────────
+    [
+      "Author from Author - Title document",
+      "filename",
+      "^(.+?)\\s*[-–—]\\s*.+?\\.[^.]+$",
+      "author",
+      "$1",
+    ],
+    [
+      "Title from Author - Title document",
+      "filename",
+      "^.+?\\s*[-–—]\\s*(.+?)\\.[^.]+$",
+      "title",
+      "$1",
+    ],
+  ];
+
+  const insertPreset = db.prepare(
+    "INSERT INTO tag_rules (name, source_field, regex, target_field, template, is_preset) VALUES (?, ?, ?, ?, ?, 1)",
+  );
+  const presetExists = db.prepare(
+    "SELECT COUNT(*) as cnt FROM tag_rules WHERE name = ? AND is_preset = 1",
+  );
+
+  for (const [name, source, regex, target, template] of presets) {
+    const row = presetExists.get(name) as { cnt: number };
+    if (row.cnt === 0) {
+      insertPreset.run(name, source, regex, target, template);
+    }
   }
 }

@@ -18,7 +18,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useFileStore, useClipboardStore } from "../stores";
+import {
+  useFileStore,
+  useClipboardStore,
+  usePendingChangesStore,
+} from "../stores";
 import type { Tag, FileType } from "../../shared/types";
 import {
   COMMON_TAG_FIELDS,
@@ -47,6 +51,7 @@ export function TagInspector() {
   const [showRulesDialog, setShowRulesDialog] = useState(false);
   const hasCopiedTags = useClipboardStore((s) => s.hasCopiedTags);
   const copiedTags = useClipboardStore((s) => s.copiedTags);
+  const applyingChanges = usePendingChangesStore((s) => s.applying);
 
   const selectedIds = Array.from(selectedFileIds);
   const singleFileId = selectedIds.length === 1 ? selectedIds[0] : null;
@@ -441,11 +446,11 @@ export function TagInspector() {
 
       {/* Tag Rules Modal Dialog */}
       <Dialog open={showRulesDialog} onOpenChange={setShowRulesDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="p-3 py-6 shrink-0">
             <DialogTitle>Tag Rules</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <TagRulesEditor />
           </div>
         </DialogContent>
@@ -453,9 +458,21 @@ export function TagInspector() {
 
       {/* Save button */}
       <div className="p-3 border-t border-border">
-        <Button onClick={handleSaveToQueue} className="w-full gap-2" size="sm">
+        <Button
+          onClick={handleSaveToQueue}
+          className="w-full gap-2"
+          size="sm"
+          disabled={applyingChanges}
+          title={
+            applyingChanges
+              ? "Wait for pending changes to finish applying"
+              : undefined
+          }
+        >
           <Save className="h-4 w-4" />
-          Queue Changes ({Object.keys(editedTags).length} tags)
+          {applyingChanges
+            ? "Applying Changes…"
+            : `Queue Changes (${Object.keys(editedTags).length} tags)`}
         </Button>
       </div>
     </div>

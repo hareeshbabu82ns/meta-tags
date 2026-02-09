@@ -91,6 +91,12 @@ export interface PendingChange {
   status: "pending" | "applied" | "rejected";
 }
 
+export interface ApplyProgress {
+  applied: number;
+  total: number;
+  currentFile: string;
+}
+
 // ─── Common Tag Fields ─────────────────────────────────────────────────
 
 export const COMMON_TAG_FIELDS = [
@@ -242,11 +248,16 @@ export interface ElectronAPI {
     changes: Omit<PendingChange, "id" | "status">[],
   ): Promise<PendingChange[]>;
   getPendingChanges(): Promise<PendingChange[]>;
-  applyPendingChanges(
-    ids: string[],
-  ): Promise<{ success: string[]; failed: { id: string; error: string }[] }>;
+  applyPendingChanges(ids: string[]): void;
   rejectPendingChanges(ids: string[]): Promise<void>;
   clearPendingChanges(): Promise<void>;
+  onApplyProgress(callback: (progress: ApplyProgress) => void): () => void;
+  onApplyComplete(
+    callback: (result: {
+      success: string[];
+      failed: { id: string; error: string }[];
+    }) => void,
+  ): () => void;
 
   // Tag History (Undo)
   getTagHistory(fileId: number): Promise<TagHistoryEntry[]>;

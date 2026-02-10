@@ -65,12 +65,12 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
 /** Trigger a manual check for updates */
 export function checkForUpdates(): void {
-  autoUpdater.checkForUpdates().catch(() => {});
+  autoUpdater.checkForUpdates().catch(() => {}); // eslint-disable-line @typescript-eslint/no-empty-function
 }
 
 /** Download the available update */
 export function downloadUpdate(): void {
-  autoUpdater.downloadUpdate().catch(() => {});
+  autoUpdater.downloadUpdate().catch(() => {}); // eslint-disable-line @typescript-eslint/no-empty-function
 }
 
 /** Install the downloaded update and restart */

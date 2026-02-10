@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Save,
   Plus,
@@ -380,7 +380,10 @@ export function TagInspector() {
 
             {/* Custom tags */}
             {Object.entries(editedTags)
-              .filter(([key]) => !COMMON_TAG_FIELDS.includes(key as any))
+              .filter(
+                ([key]) =>
+                  !(COMMON_TAG_FIELDS as readonly string[]).includes(key),
+              )
               .map(([key, value]) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-xs">

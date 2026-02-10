@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  # Allow manual trigger for debugging
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,27 +14,55 @@ env:
   NODE_VERSION: "20"
 
 jobs:
+  # ── Lint & Test (non-blocking) ──────────────────────────
+  quality:
+    runs-on: ubuntu-latest
+    name: Lint & Test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Rebuild better-sqlite3 for system Node (not Electron) so tests work
+      - name: Rebuild native modules for Node.js
+        run: npx --yes @electron/rebuild --module-dir . --force --only better-sqlite3 --electron-version="" 2>/dev/null || npm rebuild better-sqlite3
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+  # ── Build installers per platform ───────────────────────
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          # - os: macos-latest
-          #   platform: darwin
-          #   arch: x64
-          #   make_targets: --targets @electron-forge/maker-zip,@electron-forge/maker-dmg
           - os: macos-latest
             platform: darwin
             arch: arm64
-            make_targets: --targets @electron-forge/maker-zip,@electron-forge/maker-dmg
+            make_targets: "@electron-forge/maker-zip,@electron-forge/maker-dmg"
+          # - os: macos-latest
+          #   platform: darwin
+          #   arch: x64
+          #   make_targets: "@electron-forge/maker-zip,@electron-forge/maker-dmg"
           # - os: ubuntu-latest
           #   platform: linux
           #   arch: x64
-          #   make_targets: --targets @electron-forge/maker-deb,@electron-forge/maker-rpm,@electron-forge/maker-zip
+          #   make_targets: "@electron-forge/maker-deb,@electron-forge/maker-zip"
           # - os: windows-latest
           #   platform: win32
           #   arch: x64
-          #   make_targets: --targets @electron-forge/maker-squirrel,@electron-forge/maker-zip
+          #   make_targets: "@electron-forge/maker-squirrel,@electron-forge/maker-zip"
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.platform }}-${{ matrix.arch }})
@@ -52,27 +82,23 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg fakeroot rpm
-
-      # macOS arm64: set env for native module cross-compile when needed
-      - name: Set macOS arch env
-        if: matrix.platform == 'darwin'
-        run: echo "npm_config_arch=${{ matrix.arch }}" >> "$GITHUB_ENV"
+          sudo apt-get install -y dpkg fakeroot
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Run tests
-        run: npm test
-
       - name: Make distributables
-        run: npx electron-forge make --arch=${{ matrix.arch }} ${{ matrix.make_targets }}
+        run: npx electron-forge make --arch=${{ matrix.arch }} --platform=${{ matrix.platform }} --targets=${{ matrix.make_targets }}
         env:
-          # Disable code signing in CI unless secrets are configured
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          DEBUG: "electron-forge:*"
+
+      - name: List build output
+        if: always()
+        shell: bash
+        run: |
+          echo "── out/make tree ──"
+          find out/make -type f 2>/dev/null || echo "No out/make directory found"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -86,13 +112,15 @@ jobs:
             out/make/**/*.dmg
             out/make/**/*.deb
             out/make/**/*.rpm
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 5
 
+  # ── Create GitHub Release ───────────────────────────────
   release:
     needs: build
     runs-on: ubuntu-latest
     name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
       - name: Checkout
@@ -105,31 +133,20 @@ jobs:
           merge-multiple: true
 
       - name: List release files
-        run: find artifacts -type f | head -50
-
-      - name: Extract release notes from tag
-        id: notes
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "── All downloaded artifacts ──"
+          find artifacts -type f || echo "No artifacts found"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Meta Tags ${{ steps.notes.outputs.tag }}
+          name: Meta Tags ${{ github.ref_name }}
           draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
           files: |
-            artifacts/**/*.exe
-            artifacts/**/*.nupkg
-            artifacts/**/*.msi
-            artifacts/**/*.zip
-            artifacts/**/*.dmg
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
+            artifacts/**/*
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -116,8 +116,6 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.on(IPC.APPLY_PENDING_CHANGES, (event, ids: string[]) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-
     const applyNext = async () => {
       const success: string[] = [];
       const failed: { id: string; error: string }[] = [];

@@ -6,7 +6,6 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 
 const ROOT = path.resolve(__dirname, "../..");
-const BS3_DIR = path.join(ROOT, "node_modules/better-sqlite3");
 
 export async function setup(): Promise<void> {
   console.log("\n🔧 Rebuilding better-sqlite3 for system Node...");

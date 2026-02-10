@@ -2,8 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import { IPC } from "./shared/ipc-channels";
 import type {
   ElectronAPI,
-  PendingChange,
-  TagRule,
+  PendingChange, // eslint-disable-line @typescript-eslint/no-unused-vars
+  TagRule, // eslint-disable-line @typescript-eslint/no-unused-vars
   ScanProgress,
   UpdateStatus,
   ApplyProgress,

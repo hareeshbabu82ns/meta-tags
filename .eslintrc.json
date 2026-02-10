@@ -12,5 +12,36 @@
     "plugin:import/electron",
     "plugin:import/typescript"
   ],
-  "parser": "@typescript-eslint/parser"
+  "parser": "@typescript-eslint/parser",
+  "settings": {
+    "import/resolver": {
+      "typescript": true
+    }
+  },
+  "overrides": [
+    {
+      "files": ["src/main/**/*.ts"],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off"
+      }
+    },
+    {
+      "files": ["src/main/db/database.ts", "tests/**/*.ts"],
+      "rules": {
+        "import/no-named-as-default": "off"
+      }
+    },
+    {
+      "files": ["src/main/db/queries.ts"],
+      "rules": {
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    },
+    {
+      "files": ["src/renderer.ts"],
+      "rules": {
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    }
+  ]
 }

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   FolderOpen,
   Plus,
@@ -25,7 +25,7 @@ export function Sidebar() {
   const removeLibrary = useLibraryStore((s) => s.removeLibrary);
   const setActiveLibrary = useLibraryStore((s) => s.setActiveLibrary);
   const setActiveFolder = useLibraryStore((s) => s.setActiveFolder);
-  const [isDragOver, setIsDragOver] = React.useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleScan = async (libId: number) => {
     await window.electronAPI.scanLibrary(libId);
@@ -183,7 +183,7 @@ function FolderTreeNode({
   onSelect: (path: string | null) => void;
   depth: number;
 }) {
-  const [expanded, setExpanded] = React.useState(depth < 1);
+  const [expanded, setExpanded] = useState(depth < 1);
   const isActive = activeFolderPath === node.path;
   const hasChildren = node.children.length > 0;
 

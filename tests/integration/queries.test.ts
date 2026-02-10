@@ -19,7 +19,7 @@ let testDb: Database.Database;
 
 vi.mock("../../src/main/db/database", () => ({
   getDb: () => testDb,
-  closeDb: () => {},
+  closeDb: () => {}, // eslint-disable-line @typescript-eslint/no-empty-function
 }));
 
 // Import queries AFTER mock is set up

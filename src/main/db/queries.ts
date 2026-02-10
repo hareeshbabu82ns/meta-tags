@@ -137,7 +137,7 @@ export function upsertTag(
   fileId: number,
   key: string,
   value: string,
-  source: string = "native",
+  source = "native",
 ): void {
   getDb()
     .prepare(

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Music,
@@ -97,7 +97,7 @@ export function FileList() {
   const openViewer = useViewerStore((s) => s.openViewer);
   const fileListView = useSettingsStore((s) => s.fileListView);
   const setFileListView = useSettingsStore((s) => s.setFileListView);
-  const [searchInput, setSearchInput] = React.useState("");
+  const [searchInput, setSearchInput] = useState("");
 
   const handleSearch = () => {
     search(searchInput);
@@ -328,7 +328,7 @@ function VirtualizedFileList({
   onPlay: (file: FileRecord) => void;
   onOpenViewer: (file: FileRecord) => void;
 }) {
-  const parentRef = React.useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const rowHeight =
     fileListView === "table" ? TABLE_ROW_HEIGHT : LIST_ROW_HEIGHT;
